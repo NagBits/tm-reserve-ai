@@ -1,9 +1,8 @@
-// context/AuthContext.tsx
 'use client';
 import { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, User } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 
 interface AuthContextType {
   user: User | null;
@@ -21,33 +20,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        setUser(firebaseUser);
-        const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
-        if (userDoc.exists()) {
-          setRoleHistory(userDoc.data().roleHistory || []);
-        } else {
-          await setDoc(doc(db, "users", firebaseUser.uid), { 
-            email: firebaseUser.email, 
-            roleHistory: [] 
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+      try {
+        if (currentUser) {
+          setUser(currentUser);
+          
+          const userRef = doc(db, "users", currentUser.uid);
+          
+          // 1. Check if user document exists; if not, create it safely
+          // We do this inside a try-catch so it doesn't crash the auth flow
+          try {
+            const docSnap = await getDoc(userRef);
+            if (!docSnap.exists()) {
+              await setDoc(userRef, { 
+                email: currentUser.email, 
+                roleHistory: [] 
+              });
+            }
+          } catch (docError) {
+            console.error("Error creating user profile:", docError);
+            // Even if DB fails, we still let them log in
+          }
+
+          // 2. Listen for real-time changes to Role History
+          onSnapshot(userRef, (snapshot) => {
+            if (snapshot.exists()) {
+              setRoleHistory(snapshot.data().roleHistory || []);
+            }
           });
+
+        } else {
+          setUser(null);
+          setRoleHistory([]);
         }
-      } else {
-        setUser(null);
-        setRoleHistory([]);
+      } catch (error) {
+        console.error("Auth State Error:", error);
+      } finally {
+        // CRITICAL: Always turn off loading, even if errors occur
+        setLoading(false);
       }
-      setLoading(false);
     });
-    return () => unsubscribe();
+
+    return () => unsubscribeAuth();
   }, []);
 
   const login = async () => {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (error: any) {
+      console.error("Login Popup Failed:", error);
+      alert(`Login failed: ${error.message}`);
+    }
   };
 
-  const logout = () => signOut(auth);
+  const logout = async () => {
+    await signOut(auth);
+    setRoleHistory([]);
+  };
 
   return (
     <AuthContext.Provider value={{ user, roleHistory, loading, login, logout }}>
