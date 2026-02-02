@@ -1,74 +1,108 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
-import { useAuth } from '@/context/AuthContext';
-import { reserveRole, cancelRole } from '@/lib/actions';
-import { Calendar, UserPlus, UserX } from 'lucide-react';
+import { collection, query, orderBy, onSnapshot, where, Timestamp } from 'firebase/firestore';
+import MeetingCard from './MeetingCard';
+import { Loader2, CalendarX, CalendarCheck } from 'lucide-react';
 
-export default function MeetingList() {
-  const { user } = useAuth();
+interface MeetingListProps {
+  selectedDate?: Date; // <--- This prop is key
+}
+
+export default function MeetingList({ selectedDate }: MeetingListProps) {
   const [meetings, setMeetings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Debugging: Check your browser console to see if the date is arriving
+  console.log("MeetingList received selectedDate:", selectedDate); 
 
   useEffect(() => {
-    // Only fetch PUBLISHED meetings
+    const now = new Date();
+    now.setHours(0, 0, 0, 0); 
+    
+    // Fetch ALL future meetings first, then we filter in memory
     const q = query(
       collection(db, "meetings"),
-      where("isPublished", "==", true),
+      where("timestamp", ">=", Timestamp.fromDate(now)),
       orderBy("timestamp", "asc")
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setMeetings(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => {
-      console.error("Index missing? Check console link:", error);
+      const meetingData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setMeetings(meetingData);
+      setLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
-  const handleAction = async (meetingId: string, index: number, role: string, action: 'book' | 'cancel') => {
-    if (!user) return alert("Please sign in first");
-    try {
-      if (action === 'book') await reserveRole(meetingId, index, user, role);
-      else await cancelRole(meetingId, index, user, role);
-    } catch (e) {
-      alert(e);
-    }
-  };
+  // --- FILTERING LOGIC ---
+  const filteredMeetings = meetings.filter(meeting => {
+    // If no date is selected in the calendar, show EVERYTHING
+    if (!selectedDate) return true; 
+    
+    // If a date IS selected, compare strictly by date string
+    const mDate = meeting.timestamp.toDate().toDateString(); // e.g., "Sat Mar 14 2026"
+    const sDate = selectedDate.toDateString();               // e.g., "Sat Mar 14 2026"
+    
+    return mDate === sDate;
+  });
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-20">
+        <Loader2 className="animate-spin text-purple-600" size={32} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-bold flex items-center gap-2"><Calendar/> Upcoming Meetings</h2>
-      {meetings.length === 0 && <p className="text-slate-500">No meetings scheduled.</p>}
-      
-      {meetings.map((m) => (
-        <div key={m.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-          <div className="bg-slate-50 p-3 border-b font-bold text-slate-700">{m.date}</div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-slate-100">
-            {m.slots.map((slot: any, idx: number) => (
-              <div key={idx} className="bg-white p-3 flex justify-between items-center">
-                <div>
-                  <div className="text-xs font-bold text-slate-400 uppercase">{slot.role}</div>
-                  <div className={`text-sm font-medium ${slot.userId ? 'text-slate-900' : 'text-slate-300'}`}>
-                    {slot.userName || "Available"}
-                  </div>
-                </div>
-                
-                {slot.userId === user?.uid ? (
-                  <button onClick={() => handleAction(m.id, idx, slot.role, 'cancel')} className="text-red-500 hover:bg-red-50 p-2 rounded">
-                    <UserX size={18}/>
-                  </button>
-                ) : !slot.userId ? (
-                  <button onClick={() => handleAction(m.id, idx, slot.role, 'book')} className="text-green-600 hover:bg-green-50 p-2 rounded">
-                    <UserPlus size={18}/>
-                  </button>
-                ) : null}
-              </div>
-            ))}
+      {/* Dynamic Header */}
+      <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+          {selectedDate ? (
+             // If date selected: Show specific Date Header
+             <>
+               <CalendarCheck className="text-purple-600" size={24}/>
+               Meeting: <span className="text-purple-700">{selectedDate.toLocaleDateString('en-GB', { dateStyle: 'full' })}</span>
+             </>
+          ) : (
+             // If NO date selected: Show generic Header
+             "Upcoming Meetings"
+          )}
+        </h2>
+        <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
+          {filteredMeetings.length} Found
+        </span>
+      </div>
+
+      {/* The List */}
+      {filteredMeetings.length > 0 ? (
+        filteredMeetings.map((meeting) => (
+          <MeetingCard key={meeting.id} meeting={meeting} />
+        ))
+      ) : (
+        // Empty State (Triggered if you pick a date with no meeting)
+        <div className="text-center py-12 bg-white rounded-xl border border-dashed border-slate-300">
+          <div className="bg-slate-50 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
+            <CalendarX className="text-slate-400" />
           </div>
+          <h3 className="text-slate-900 font-medium">No meeting scheduled</h3>
+          <p className="text-slate-500 text-sm">
+            We couldn't find a session for {selectedDate?.toLocaleDateString()}.
+          </p>
+          <button 
+             onClick={() => window.location.reload()} // Simple way to clear filter if stuck
+             className="mt-4 text-purple-600 text-sm font-bold hover:underline"
+          >
+            Show all meetings
+          </button>
         </div>
-      ))}
+      )}
     </div>
   );
 }

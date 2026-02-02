@@ -1,131 +1,94 @@
-// app/page.tsx
-'use client';
+import Link from 'next/link';
+import { Mic2, CalendarCheck, Sparkles, ArrowRight } from 'lucide-react';
 
-import { useState, useEffect } from 'react';
-import { auth } from '@/lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
-import Auth from '@/components/Auth';
-import SlotList from '@/components/SlotList';
-import FeedbackEngine from '@/components/FeedbackEngine';
-import MeetingCalendar from '@/components/MeetingCalendar';
-import { LayoutDashboard, Mic2, Calendar as CalendarIcon, Trophy } from 'lucide-react';
-
-export default function Home() {
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  // Default to the first meeting date in your sequence
-  const [activeDate, setActiveDate] = useState("2026-01-25");
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-slate-50">
-        <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
-          <p className="text-slate-500 font-medium animate-pulse">Syncing with Toastmasters Cloud...</p>
-        </div>
-      </div>
-    );
-  }
-
+export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-[#f8fafc]">
-      {/* Navigation Header */}
-      <Auth />
+    <div className="flex flex-col min-h-screen bg-slate-50">
+      
+      {/* Navbar */}
+      <nav className="p-6 flex justify-between items-center max-w-6xl mx-auto w-full">
+        <div className="flex items-center gap-2 font-bold text-xl text-slate-900">
+          <div className="bg-purple-600 text-white p-1 rounded-lg">
+            <Mic2 size={20} />
+          </div>
+          TM Reserve AI
+        </div>
+        <Link href="/dashboard" className="text-sm font-medium text-slate-600 hover:text-purple-600">
+          Member Login
+        </Link>
+      </nav>
 
-      <div className="max-w-6xl mx-auto px-4 py-10">
-        {/* Hero Section */}
-        <header className="mb-10">
-          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">
-            Club <span className="text-blue-600">Dashboard</span>
+      {/* Hero Section */}
+      <main className="flex-1 flex flex-col items-center justify-center text-center px-4 max-w-4xl mx-auto space-y-8">
+        
+        <div className="space-y-4">
+          <h1 className="text-5xl md:text-6xl font-black text-slate-900 tracking-tight">
+            Master your speaking journey.
+            <span className="block text-purple-600">One role at a time.</span>
           </h1>
-          <p className="mt-2 text-slate-600">
-            Manage your speaking journey and club roles in one place.
+          <p className="text-xl text-slate-500 max-w-2xl mx-auto">
+            The intelligent way to book Toastmasters roles. 
+            Get AI-driven suggestions for your next step and never miss a speaking slot again.
           </p>
-        </header>
+        </div>
 
-        {!user ? (
-          <div className="bg-white p-16 rounded-[2rem] shadow-sm border border-slate-200 text-center">
-            <div className="bg-blue-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CalendarIcon className="h-10 w-10 text-blue-600" />
-            </div>
-            <h2 className="text-3xl font-bold text-slate-800">Ready to speak?</h2>
-            <p className="text-slate-500 mt-3 mb-8 max-w-sm mx-auto">
-              Sign in with your Google account to view the meeting schedule and reserve your next role.
-            </p>
-            <div className="inline-block scale-125">
-               <Auth /> {/* This shows the login button inside the card */}
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            
-            {/* LEFT: Calendar & Slots (8 Columns) */}
-            <div className="lg:col-span-8 space-y-6">
-              {/* Meeting Selector Component */}
-              <MeetingCalendar onDateSelect={setActiveDate} />
+        <div className="flex gap-4 flex-col sm:flex-row w-full sm:w-auto">
+          <Link 
+            href="/dashboard"
+            className="flex items-center justify-center gap-2 bg-slate-900 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-slate-800 transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1"
+          >
+            Reserve a Spot <ArrowRight size={20} />
+          </Link>
+          <a 
+            href="#features"
+            className="flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-bold text-slate-600 hover:bg-white border border-transparent hover:border-slate-200 transition-all"
+          >
+            How it works
+          </a>
+        </div>
 
-              <section className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
-                <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-100">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <LayoutDashboard className="text-blue-600" size={20} />
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-bold text-slate-800">Meeting Roles</h2>
-                      <p className="text-sm text-slate-500">Showing slots for {new Date(activeDate).toLocaleDateString()}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <SlotList selectedDate={activeDate} />
-              </section>
-            </div>
+        {/* Feature Grid */}
+        <div id="features" className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left mt-16 w-full">
+          <FeatureCard 
+            icon={<CalendarCheck className="text-blue-600" />}
+            title="Instant Booking"
+            desc="See all upcoming Saturday slots in real-time. No more spreadsheet chaos."
+          />
+          <FeatureCard 
+            icon={<Sparkles className="text-purple-600" />}
+            title="AI Coach"
+            desc="Gemini analyzes your history and suggests the perfect next role to grow."
+          />
+          <FeatureCard 
+            icon={<Mic2 className="text-orange-600" />}
+            title="Track Progress"
+            desc="Your role history is automatically saved. Watch your leadership journey unfold."
+          />
+        </div>
 
-            {/* RIGHT: AI Feedback & Stats (4 Columns) */}
-            <div className="lg:col-span-4 space-y-6">
-              {/* AI Evaluation Panel */}
-              <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <Mic2 className="text-purple-600" size={20} />
-                  </div>
-                  <h2 className="text-lg font-bold text-slate-800">AI Grammarian</h2>
-                </div>
-                <FeedbackEngine />
-              </section>
+      </main>
 
-              {/* Progress Summary */}
-              <div className="bg-slate-900 p-6 rounded-2xl text-white shadow-xl relative overflow-hidden">
-                <Trophy className="absolute -right-4 -bottom-4 text-white/10 h-32 w-32 rotate-12" />
-                <h3 className="font-bold text-xl mb-1">Your Growth</h3>
-                <p className="text-slate-400 text-sm mb-6">Pathways Level 2 Progress</p>
-                
-                <div className="space-y-4 relative z-10">
-                  <div className="flex justify-between text-sm font-medium">
-                    <span>Speech Goals</span>
-                    <span>75%</span>
-                  </div>
-                  <div className="w-full bg-slate-700 rounded-full h-2.5">
-                    <div className="bg-blue-500 h-2.5 rounded-full w-[75%] shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
-                  </div>
-                  <p className="text-xs text-slate-400 leading-relaxed">
-                    Great job! Your AI confidence score has increased by 12% over the last 3 meetings.
-                  </p>
-                </div>
-              </div>
-            </div>
+      {/* Footer */}
+      <footer className="py-8 text-center text-slate-400 text-sm">
+        <p>&copy; {new Date().getFullYear()} Toastmasters Club. All rights reserved.</p>
+        <div className="mt-2">
+          <Link href="/vpe" className="hover:text-purple-500 transition-colors">
+            VPE Admin Portal
+          </Link>
+        </div>
+      </footer>
+    </div>
+  );
+}
 
-          </div>
-        )}
+function FeatureCard({ icon, title, desc }: { icon: React.ReactNode, title: string, desc: string }) {
+  return (
+    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+      <div className="bg-slate-50 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+        {icon}
       </div>
-    </main>
+      <h3 className="font-bold text-slate-900 mb-2">{title}</h3>
+      <p className="text-slate-500 text-sm leading-relaxed">{desc}</p>
+    </div>
   );
 }

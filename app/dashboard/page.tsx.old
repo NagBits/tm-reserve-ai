@@ -1,0 +1,54 @@
+'use client';
+import { useAuth } from '@/context/AuthContext';
+import { useState, useEffect, useRef} from 'react';
+import { getParticipationSuggestion } from '@/lib/aiCoach';
+import CalendarNav from '@/components/CalendarNav';
+import MeetingList from '@/components/MeetingList';
+import { Sparkles, LogIn, LogOut } from 'lucide-react';
+
+export default function Dashboard() {
+  const { user } = useAuth();
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+
+  // This ref helps us scroll the meeting list into view on mobile
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const handleDateSelect = (date: Date) => {
+    setSelectedDate(date);
+    // On mobile, scroll down to the list when a date is picked
+    if (window.innerWidth < 1024) {
+      listRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 p-4 md:p-8">
+      <div className="max-w-7xl mx-auto">
+        <header className="flex justify-between items-end mb-8">
+           <h1 className="text-3xl font-black text-slate-900">Member Dashboard</h1>
+           {/* You can put logout button here */}
+        </header>
+
+        {/* --- SPLIT LAYOUT --- */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+
+          {/* LEFT: Calendar Navigation */}
+          <div className="lg:col-span-1">
+             <CalendarNav
+                onSelectDate={handleDateSelect}
+                selectedDate={selectedDate}
+             />
+          </div>
+
+          {/* RIGHT: Meeting List */}
+          <div className="lg:col-span-3" ref={listRef}>
+            {/* You can update MeetingList to accept a 'scrollToDate' prop later
+                For now, it just shows the list alongside the calendar */}
+             <MeetingList />
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}

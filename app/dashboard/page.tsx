@@ -1,53 +1,82 @@
 'use client';
+import { useState, useRef } from 'react'; 
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
-import { useState, useEffect } from 'react';
-import { getParticipationSuggestion } from '@/lib/aiCoach';
+
+// Components
+import CalendarNav from '@/components/CalendarNav';
 import MeetingList from '@/components/MeetingList';
-import { Sparkles, LogIn, LogOut } from 'lucide-react';
+
+// Icons
+import { Home, LogOut } from 'lucide-react';
 
 export default function Dashboard() {
-  const { user, roleHistory, login, logout, loading } = useAuth();
-  const [suggestion, setSuggestion] = useState("AI is thinking...");
+  const { user } = useAuth();
+  const router = useRouter();
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const listRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (user) getParticipationSuggestion(roleHistory).then(setSuggestion);
-  }, [user, roleHistory]);
+  const handleDateSelect = (date: Date) => {
+    setSelectedDate(date);
+    if (window.innerWidth < 1024) {
+      listRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
-  if (loading) return <div className="p-10 text-center">Loading...</div>;
-
-  if (!user) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen space-y-4">
-        <h1 className="text-3xl font-bold text-purple-700">TM Reserve AI</h1>
-        <button onClick={login} className="bg-slate-900 text-white px-6 py-3 rounded-xl flex items-center gap-2">
-          <LogIn size={20}/> Sign in with Google
-        </button>
-      </div>
-    );
-  }
+  const handleSignOut = async () => {
+    await signOut(auth);
+    router.push('/');
+  };
 
   return (
-    <div className="max-w-5xl mx-auto p-4 md:p-8 space-y-8">
-      <header className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold">Hello, {user.displayName}</h1>
-          <p className="text-slate-500 text-sm">Roles completed: {roleHistory.length}</p>
-        </div>
-        <button onClick={logout} className="text-sm text-red-500 hover:underline flex gap-1 items-center">
-          <LogOut size={14}/> Sign Out
-        </button>
-      </header>
+    <div className="min-h-screen bg-slate-50 p-4 md:p-8">
+      <div className="max-w-7xl mx-auto">
+        
+        {/* --- REVISED HEADER WITH NAVIGATION --- */}
+        <header className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8 border-b border-slate-200 pb-6">
+           <div>
+             <h1 className="text-3xl font-black text-slate-900">Member Dashboard</h1>
+             <p className="text-slate-500 text-sm">Welcome back, {user?.displayName || 'Member'}</p>
+           </div>
+           
+           <div className="flex items-center gap-3">
+             {/* Home Button */}
+             <Link 
+               href="/"
+               className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 hover:text-purple-600 transition-colors font-medium text-sm shadow-sm"
+             >
+               <Home size={16} /> Home
+             </Link>
 
-      {/* AI Section */}
-      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 rounded-2xl text-white shadow-lg flex gap-4 items-start">
-        <Sparkles className="shrink-0 mt-1" />
-        <div>
-          <h3 className="font-bold text-purple-100 text-sm uppercase tracking-wide">Coach Gemini Says:</h3>
-          <p className="text-lg font-medium mt-1 leading-relaxed">"{suggestion}"</p>
+             {/* Sign Out Button */}
+             <button
+               onClick={handleSignOut}
+               className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors font-medium text-sm shadow-sm"
+             >
+               <LogOut size={16} /> Sign Out
+             </button>
+           </div>
+        </header>
+
+        {/* --- SPLIT LAYOUT --- */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Calendar */}
+          <div className="lg:col-span-1 h-fit lg:sticky lg:top-4">
+             <CalendarNav 
+                onSelectDate={handleDateSelect} 
+                selectedDate={selectedDate} 
+             />
+          </div>
+
+          {/* Meeting List */}
+          <div className="lg:col-span-3" ref={listRef}>
+             <MeetingList selectedDate={selectedDate} />
+          </div>
         </div>
       </div>
-
-      <MeetingList />
     </div>
   );
 }
