@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db } from '@/lib/firebase';
-import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, User } from 'firebase/auth';
+import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, User } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 
 interface AuthContextType {
@@ -65,12 +65,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async () => {
+    const provider = new GoogleAuthProvider();
     try {
-      const provider = new GoogleAuthProvider();
+      // Attempt 1: Try Popup (Better for Desktop)
       await signInWithPopup(auth, provider);
     } catch (error: any) {
-      console.error("Login Popup Failed:", error);
-      alert(`Login failed: ${error.message}`);
+      // If Popup is blocked, Error Code is 'auth/popup-blocked'
+      if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user') {
+        console.warn("Popup blocked. Switching to Redirect method...");
+        // Attempt 2: Fallback to Redirect (Better for Mobile)
+        await signInWithRedirect(auth, provider);
+      } else {
+        console.error("Login Error:", error);
+        alert(error.message);
+      }
     }
   };
 
