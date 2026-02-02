@@ -38,9 +38,9 @@ export default function LandingPage() {
               Go to Dashboard
             </Link>
           ) : (
-            <Link href="/dashboard" className="text-sm font-medium text-slate-600 hover:text-purple-600">
-              Member Login
-            </Link>
+	  <Link href="/login" className="text-sm font-medium text-slate-600 hover:text-purple-600">
+  		Login
+	  </Link>
           )}
         </div>
       </nav>

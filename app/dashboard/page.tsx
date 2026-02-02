@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
+import UserStats from '@/components/UserStats';
+import AICoach from '@/components/AICoach';
 
 // Components
 import CalendarNav from '@/components/CalendarNav';
@@ -17,6 +19,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [userStats, setUserStats] = useState<Record<string, number>>({});
   const listRef = useRef<HTMLDivElement>(null);
 
   const handleDateSelect = (date: Date) => {
@@ -60,6 +63,18 @@ export default function Dashboard() {
              </button>
            </div>
         </header>
+
+	{/* --- NEW SECTION: PROGRESS & AI MENTOR --- */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="md:col-span-1 h-64">
+             {/* Pass the setter to UserStats so it can lift the data up */}
+             <UserStats onStatsCalculated={setUserStats} />
+          </div>
+          <div className="md:col-span-2 h-64">
+             {/* Pass the data down to AI Coach */}
+             <AICoach stats={userStats} />
+          </div>
+        </div>
 
         {/* --- SPLIT LAYOUT --- */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
