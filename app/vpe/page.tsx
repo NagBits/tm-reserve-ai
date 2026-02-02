@@ -5,12 +5,13 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-// 2. Firebase
+// 2. Firebase & Auth
 import { signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
-import { collection, getDocs, query, where, Timestamp, orderBy, limit } from 'firebase/firestore';
+import { useAuth } from '@/context/AuthContext'; // <--- IMPORT THIS
+import { collection, getDocs, query, where, Timestamp, orderBy } from 'firebase/firestore';
 
-// 3. Admin Utilities (Ensure these exist in your @/lib/adminUtils file)
+// 3. Admin Utilities
 import { seedSaturdays, wipeAllMeetings, openNextMonth } from '@/lib/adminUtils';
 
 // 4. Components
@@ -20,14 +21,15 @@ import VPEGrid from '@/components/VPEGrid';
 import { 
   LayoutDashboard, CalendarDays, Users, AlertCircle, 
   PlusCircle, Trash2, Check, Loader2, RefreshCw, 
-  ArrowLeft, Home, LogOut 
+  ArrowLeft, Home, LogOut, ShieldAlert
 } from 'lucide-react';
 
 export default function VPEPage() {
+  const { user, loading: authLoading } = useAuth(); // <--- Get current user
   const router = useRouter();
   
   // State
-  const [status, setStatus] = useState(""); // For showing success/error messages
+  const [status, setStatus] = useState(""); 
   const [loadingStats, setLoadingStats] = useState(true);
   const [stats, setStats] = useState({ 
     total: 0, 
@@ -35,10 +37,30 @@ export default function VPEPage() {
     nextDate: '-' 
   });
 
-  // Fetch stats on load
+  // --- 🔒 AUTHENTICATION GATEKEEPER 🔒 ---
   useEffect(() => {
-    fetchStats();
-  }, []);
+    // 1. Wait for auth to initialize
+    if (authLoading) return;
+
+    // 2. If not logged in, kick to login page
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
+    // 3. If logged in but NOT the VPE, kick to Member Dashboard
+    // Make sure NEXT_PUBLIC_VPE_EMAIL is set in your .env.local file!
+    const vpeEmail = process.env.NEXT_PUBLIC_VPE_EMAIL;
+    
+    if (user.email !== vpeEmail) {
+      console.warn(`Access Denied. User ${user.email} is not VPE (${vpeEmail})`);
+      router.push('/dashboard'); 
+    } else {
+      // Only fetch data if we are authorized
+      fetchStats();
+    }
+  }, [user, authLoading, router]);
+
 
   // --- STATS LOGIC ---
   const fetchStats = async () => {
@@ -47,7 +69,6 @@ export default function VPEPage() {
       const now = new Date();
       now.setHours(0, 0, 0, 0);
 
-      // Query future meetings
       const q = query(
         collection(db, "meetings"),
         where("timestamp", ">=", Timestamp.fromDate(now)),
@@ -61,7 +82,6 @@ export default function VPEPage() {
       let nextMeetingDate = '-';
 
       if (!snapshot.empty) {
-        // Get next meeting date
         const firstDoc = snapshot.docs[0].data();
         if (firstDoc.timestamp) {
           nextMeetingDate = firstDoc.timestamp.toDate().toLocaleDateString('en-GB', {
@@ -69,7 +89,6 @@ export default function VPEPage() {
           });
         }
 
-        // Count open slots across all future meetings
         snapshot.docs.forEach(doc => {
           const data = doc.data();
           if (data.slots) {
@@ -100,9 +119,7 @@ export default function VPEPage() {
     try {
       await task();
       setStatus(`✅ ${successMessage}`);
-      fetchStats(); // Refresh stats after action
-      
-      // Clear status after 3 seconds
+      fetchStats(); 
       setTimeout(() => setStatus(""), 4000);
     } catch (e: any) {
       console.error(e);
@@ -110,11 +127,28 @@ export default function VPEPage() {
     }
   };
 
-  // --- AUTH ---
   const handleSignOut = async () => {
     await signOut(auth);
     router.push('/');
   };
+
+  // --- LOADING SCREEN ---
+  // If we are checking auth, show a full screen loader so they see nothing.
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="animate-spin text-purple-600" size={48} />
+          <p className="text-slate-500 font-medium">Verifying Credentials...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If user is loaded but not authorized (and useEffect hasn't redirected yet), hide content
+  if (!user || user.email !== process.env.NEXT_PUBLIC_VPE_EMAIL) {
+    return null; 
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -124,7 +158,6 @@ export default function VPEPage() {
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
           
           <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-start">
-            {/* Back to Home */}
             <Link 
               href="/" 
               className="p-2 bg-slate-800 rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
@@ -142,16 +175,14 @@ export default function VPEPage() {
           </div>
 
           <div className="flex items-center gap-4">
-             <div className="text-xs text-slate-400 font-mono hidden md:block">
-               ADMIN MODE ACTIVE
+             <div className="text-xs text-slate-400 font-mono hidden md:block flex items-center gap-1">
+               <ShieldAlert size={12}/> ADMIN MODE ACTIVE
              </div>
              
-             {/* Member App Link */}
              <Link href="/dashboard" className="text-xs font-bold text-slate-300 hover:text-white flex items-center gap-1 bg-slate-800 px-3 py-1.5 rounded-full transition-colors">
                <Home size={14}/> Member App
              </Link>
 
-             {/* Sign Out Button */}
              <button 
                onClick={handleSignOut}
                className="text-xs font-bold text-red-200 hover:text-white hover:bg-red-900 flex items-center gap-1 bg-slate-800 px-3 py-1.5 rounded-full transition-colors border border-transparent hover:border-red-800"
@@ -200,7 +231,6 @@ export default function VPEPage() {
           </h2>
           <div className="flex flex-wrap gap-4">
             
-            {/* Generate Current Month */}
             <button 
               onClick={() => runTask(seedSaturdays, "Current month generated!")}
               className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-800 px-4 py-2 rounded-lg font-bold transition-colors"
@@ -208,7 +238,6 @@ export default function VPEPage() {
               <PlusCircle size={18} /> Seed Current Month
             </button>
 
-            {/* Open Next Month */}
             <button 
               onClick={() => runTask(openNextMonth, "Next month opened!")}
               className="flex items-center gap-2 bg-purple-100 hover:bg-purple-200 text-purple-700 px-4 py-2 rounded-lg font-bold transition-colors"
@@ -218,7 +247,6 @@ export default function VPEPage() {
 
             <div className="flex-1"></div>
 
-            {/* Wipe Data */}
             <button 
               onClick={() => runTask(wipeAllMeetings, "All data wiped.")}
               className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-lg font-bold transition-colors border border-red-100"

@@ -1,52 +1,95 @@
 'use client';
+import { useState, useRef } from 'react'; 
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
-import { useState, useEffect, useRef} from 'react';
-import { getParticipationSuggestion } from '@/lib/aiCoach';
+import UserStats from '@/components/UserStats';
+import AICoach from '@/components/AICoach';
+
+// Components
 import CalendarNav from '@/components/CalendarNav';
 import MeetingList from '@/components/MeetingList';
-import { Sparkles, LogIn, LogOut } from 'lucide-react';
+
+// Icons
+import { Home, LogOut } from 'lucide-react';
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const router = useRouter();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-
-  // This ref helps us scroll the meeting list into view on mobile
+  const [userStats, setUserStats] = useState<Record<string, number>>({});
   const listRef = useRef<HTMLDivElement>(null);
 
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
-    // On mobile, scroll down to the list when a date is picked
     if (window.innerWidth < 1024) {
       listRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
+  const handleSignOut = async () => {
+    await signOut(auth);
+    router.push('/');
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
-        <header className="flex justify-between items-end mb-8">
-           <h1 className="text-3xl font-black text-slate-900">Member Dashboard</h1>
-           {/* You can put logout button here */}
+        
+        {/* --- REVISED HEADER WITH NAVIGATION --- */}
+        <header className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8 border-b border-slate-200 pb-6">
+           <div>
+             <h1 className="text-3xl font-black text-slate-900">Member Dashboard</h1>
+             <p className="text-slate-500 text-sm">Welcome back, {user?.displayName || 'Member'}</p>
+           </div>
+           
+           <div className="flex items-center gap-3">
+             {/* Home Button */}
+             <Link 
+               href="/"
+               className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 hover:text-purple-600 transition-colors font-medium text-sm shadow-sm"
+             >
+               <Home size={16} /> Home
+             </Link>
+
+             {/* Sign Out Button */}
+             <button
+               onClick={handleSignOut}
+               className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors font-medium text-sm shadow-sm"
+             >
+               <LogOut size={16} /> Sign Out
+             </button>
+           </div>
         </header>
+
+	{/* --- NEW SECTION: PROGRESS & AI MENTOR --- */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="md:col-span-1 h-64">
+             {/* Pass the setter to UserStats so it can lift the data up */}
+             <UserStats onStatsCalculated={setUserStats} />
+          </div>
+          <div className="md:col-span-2 h-64">
+             {/* Pass the data down to AI Coach */}
+             <AICoach stats={userStats} />
+          </div>
+        </div>
 
         {/* --- SPLIT LAYOUT --- */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-
-          {/* LEFT: Calendar Navigation */}
-          <div className="lg:col-span-1">
-             <CalendarNav
-                onSelectDate={handleDateSelect}
-                selectedDate={selectedDate}
+          {/* Calendar */}
+          <div className="lg:col-span-1 h-fit lg:sticky lg:top-4">
+             <CalendarNav 
+                onSelectDate={handleDateSelect} 
+                selectedDate={selectedDate} 
              />
           </div>
 
-          {/* RIGHT: Meeting List */}
+          {/* Meeting List */}
           <div className="lg:col-span-3" ref={listRef}>
-            {/* You can update MeetingList to accept a 'scrollToDate' prop later
-                For now, it just shows the list alongside the calendar */}
-             <MeetingList />
+             <MeetingList selectedDate={selectedDate} />
           </div>
-
         </div>
       </div>
     </div>
