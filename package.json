@@ -11,13 +11,14 @@
     "@google/generative-ai": "^0.24.1",
     "dotenv": "latest",
     "firebase": "latest",
-    "firebase-admin": "latest",
+    "firebase-admin": "^12.7.0",
     "lucide-react": "latest",
-    "next": "latest",
+    "next": "^16.1.6",
     "openai": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "react-firebase-hooks": "^5.1.1"
+    "react-firebase-hooks": "^5.1.1",
+    "resend": "^6.9.1"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.1.18",

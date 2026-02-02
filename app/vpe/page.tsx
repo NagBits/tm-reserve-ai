@@ -1,47 +1,57 @@
-// app/vpe/page.tsx
 'use client';
-import { seedSaturdays } from '@/lib/initializeMeetings';
+import { seedSaturdays, wipeAllMeetings } from '@/lib/adminUtils';
 import { useState } from 'react';
-import { PlayCircle, Loader2, CheckCircle } from 'lucide-react';
+import { Trash2, PlusCircle, Check, Loader2 } from 'lucide-react';
 
-export default function VPEPage() {
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle');
+export default function VPEConsole() {
+  const [status, setStatus] = useState("");
 
-  const handleInit = async () => {
-    if (!confirm("This will create slots for the next 4 Saturdays. Continue?")) return;
-    
-    setStatus('loading');
+  const runTask = async (task: Function, msg: string) => {
+    if(!confirm("Are you sure? This affects live data.")) return;
+    setStatus("Processing...");
     try {
-      await seedSaturdays();
-      setStatus('success');
-      setTimeout(() => setStatus('idle'), 3000);
-    } catch (error) {
-      console.error(error);
-      alert("Initialization failed. Check console for details.");
-      setStatus('idle');
+      await task();
+      setStatus(msg);
+    } catch (e) {
+      console.error(e);
+      setStatus("Error.");
     }
   };
 
   return (
-    <div className="p-10 max-w-2xl mx-auto">
-      <div className="bg-slate-900 text-white p-8 rounded-3xl shadow-xl">
-        <h1 className="text-2xl font-bold mb-2">System Initializer</h1>
-        <p className="text-slate-400 mb-6 text-sm">
-          Use this to generate the meeting structure for the next month. 
-          Each Saturday will include all standard Toastmasters roles.
-        </p>
-        
+    <div className="max-w-xl mx-auto p-10 space-y-6">
+      <h1 className="text-3xl font-bold mb-8">VPE Admin Console</h1>
+      
+      <div className="grid gap-4">
         <button 
-          onClick={handleInit}
-          disabled={status !== 'idle'}
-          className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-500 py-4 rounded-2xl font-bold transition-all disabled:opacity-50"
+          onClick={() => runTask(seedSaturdays, "Saturdays Created!")}
+          className="bg-green-600 text-white p-6 rounded-xl text-left hover:bg-green-700 transition flex justify-between items-center"
         >
-          {status === 'loading' ? <Loader2 className="animate-spin" /> : 
-           status === 'success' ? <CheckCircle /> : <PlayCircle />}
-          {status === 'loading' ? 'Writing to Firestore...' : 
-           status === 'success' ? 'Database Seeded!' : 'Run Initialization'}
+          <div>
+            <div className="font-bold text-lg">Generate Next Month</div>
+            <div className="text-green-100 text-sm">Creates 4 Saturday slots</div>
+          </div>
+          <PlusCircle size={24}/>
+        </button>
+
+        <button 
+          onClick={() => runTask(wipeAllMeetings, "Database Wiped.")}
+          className="bg-red-600 text-white p-6 rounded-xl text-left hover:bg-red-700 transition flex justify-between items-center"
+        >
+          <div>
+            <div className="font-bold text-lg">Emergency Wipe</div>
+            <div className="text-red-100 text-sm">Delete ALL meetings</div>
+          </div>
+          <Trash2 size={24}/>
         </button>
       </div>
+      
+      {status && (
+        <div className="text-center font-bold text-slate-600 flex justify-center gap-2 animate-pulse">
+           {status === 'Processing...' ? <Loader2 className="animate-spin"/> : <Check/>}
+           {status}
+        </div>
+      )}
     </div>
   );
 }

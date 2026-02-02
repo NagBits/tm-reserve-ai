@@ -1,16 +1,17 @@
-// components/MeetingList.tsx
 'use client';
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
-import { Calendar, UserPlus } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { reserveRole, cancelRole } from '@/lib/actions';
+import { Calendar, UserPlus, UserX } from 'lucide-react';
 
 export default function MeetingList() {
+  const { user } = useAuth();
   const [meetings, setMeetings] = useState<any[]>([]);
 
   useEffect(() => {
-    // 1. Query for Published meetings only
-    // 2. Order by timestamp (requires a Firestore index)
+    // Only fetch PUBLISHED meetings
     const q = query(
       collection(db, "meetings"),
       where("isPublished", "==", true),
@@ -18,41 +19,51 @@ export default function MeetingList() {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const meetingsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setMeetings(meetingsData);
+      setMeetings(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      console.error("Index missing? Check console link:", error);
     });
 
     return () => unsubscribe();
   }, []);
 
+  const handleAction = async (meetingId: string, index: number, role: string, action: 'book' | 'cancel') => {
+    if (!user) return alert("Please sign in first");
+    try {
+      if (action === 'book') await reserveRole(meetingId, index, user, role);
+      else await cancelRole(meetingId, index, user, role);
+    } catch (e) {
+      alert(e);
+    }
+  };
+
   return (
-    <div className="space-y-8">
-      {meetings.length === 0 && <p className="text-slate-400">No upcoming Saturdays published yet.</p>}
+    <div className="space-y-6">
+      <h2 className="text-xl font-bold flex items-center gap-2"><Calendar/> Upcoming Meetings</h2>
+      {meetings.length === 0 && <p className="text-slate-500">No meetings scheduled.</p>}
       
-      {meetings.map((meeting) => (
-        <div key={meeting.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <div className="bg-slate-50 p-4 border-b border-slate-200 flex items-center gap-2">
-            <Calendar size={18} className="text-purple-600" />
-            <h3 className="font-bold text-slate-800">{meeting.date}</h3>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-slate-200">
-            {meeting.slots.map((slot: any, index: number) => (
-              <div key={index} className="bg-white p-4 flex justify-between items-center">
+      {meetings.map((m) => (
+        <div key={m.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+          <div className="bg-slate-50 p-3 border-b font-bold text-slate-700">{m.date}</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-slate-100">
+            {m.slots.map((slot: any, idx: number) => (
+              <div key={idx} className="bg-white p-3 flex justify-between items-center">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{slot.role}</p>
-                  <p className="font-medium text-slate-700">
-                    {slot.userName || "Vacant"}
-                  </p>
+                  <div className="text-xs font-bold text-slate-400 uppercase">{slot.role}</div>
+                  <div className={`text-sm font-medium ${slot.userId ? 'text-slate-900' : 'text-slate-300'}`}>
+                    {slot.userName || "Available"}
+                  </div>
                 </div>
-                {!slot.userId && (
-                  <button className="text-purple-600 hover:bg-purple-50 p-2 rounded-lg transition-colors">
-                    <UserPlus size={20} />
+                
+                {slot.userId === user?.uid ? (
+                  <button onClick={() => handleAction(m.id, idx, slot.role, 'cancel')} className="text-red-500 hover:bg-red-50 p-2 rounded">
+                    <UserX size={18}/>
                   </button>
-                )}
+                ) : !slot.userId ? (
+                  <button onClick={() => handleAction(m.id, idx, slot.role, 'book')} className="text-green-600 hover:bg-green-50 p-2 rounded">
+                    <UserPlus size={18}/>
+                  </button>
+                ) : null}
               </div>
             ))}
           </div>
