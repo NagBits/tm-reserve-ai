@@ -5,8 +5,8 @@ import { collection, addDoc, Timestamp, getDocs, writeBatch, doc, query, orderBy
 export const ROLE_GROUPS = {
   "Core Team": ["SAA", "President", "TMOD", "TTM"],
   "GE Team": ["General Evaluator", "Timer", "Ah-Counter", "Listener", "Grammarian"],
-  "Prepared Speeches": ["Speaker 1", "Speaker 2", "Speaker 3", "Speaker 4"],
-  "Evaluators": ["Evaluator 1", "Evaluator 2", "Evaluator 3", "Evaluator 4"]
+  "Prepared Speeches": ["Speaker 1", "Speaker 2", "Speaker 3", "Speaker 4", "Speaker 5", "Speaker 6"],
+  "Evaluators": ["Evaluator 1", "Evaluator 2", "Evaluator 3", "Evaluator 4", "Evaluator 5", "Evaluator 6"]
 };
 
 // Flatten for easy usage

@@ -8,14 +8,21 @@ import { Loader2, Save, X, AlertCircle } from 'lucide-react';
 // --- CONFIGURATION: Define your Table Columns here ---
 const ROLE_COLUMNS = [
   "Toastmaster of the Day",
+  "Listner",
   "Speaker 1",
   "Speaker 2",
   "Speaker 3",
+  "Speaker 4",
+  "Speaker 5",
+  "Speaker 6",
   "Table Topics Master",
   "General Evaluator",
   "Evaluator 1",
   "Evaluator 2",
   "Evaluator 3",
+  "Evaluator 4",
+  "Evaluator 5",
+  "Evaluator 6",
   "Timer",
   "Ah-Counter",
   "Grammarian"
