@@ -4,9 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { Chrome, ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import Image from 'next/image'; // <--- Required for the logo
 
 export default function LoginPage() {
   const router = useRouter();
@@ -39,17 +38,21 @@ export default function LoginPage() {
   };
 
   return (
+	  {/* Logo/Icon Container */}
+      <div className="bg-white w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100 relative overflow-hidden">
+         <Image
+           src="/tm.jpeg"
+           alt="Club Logo"
+           fill
+           className="object-contain p-2"
+         />
+      </div>
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
         
-        {/* --- LOGO SECTION --- */}
-        <div className="bg-white w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100 relative overflow-hidden">
-          <Image 
-            src="/tm.jpeg" 
-            alt="Club Logo" 
-            fill
-            className="object-contain p-1" 
-          />
+        {/* Logo/Icon */}
+        <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
+           <Chrome className="text-purple-600" size={32} />
         </div>
 
         <h1 className="text-2xl font-black text-slate-900 mb-2">Welcome Back</h1>

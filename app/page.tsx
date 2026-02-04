@@ -1,96 +1,131 @@
-'use client'; // Switch to Client Component for Auth check
+'use client';
+
 import Link from 'next/link';
-import { Mic2, ArrowRight, ShieldCheck } from 'lucide-react';
-import LandingAnalytics from '@/components/LandingAnalytics';
-import { useAuth } from '@/context/AuthContext';
+import Image from 'next/image'; 
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext'; // <--- Import Auth Hook
+import { ArrowRight, Star, Users, Calendar, CheckCircle2, Mic, Loader2 } from 'lucide-react';
 
 export default function LandingPage() {
-  const { user } = useAuth();
-  
-  // Check if current user is VPE
-  const isVPE = user?.email === process.env.NEXT_PUBLIC_VPE_EMAIL;
+  const { user, loading } = useAuth(); // <--- Get Auth State
+  const router = useRouter();
+
+  // --- SMART NAVIGATION HANDLER ---
+  const handleReserveSpot = () => {
+    if (loading) return; // Prevent action while checking status
+
+    if (user) {
+      // If already logged in, skip login screen
+      router.push('/dashboard');
+    } else {
+      // If not logged in, go to login
+      router.push('/login');
+    }
+  };
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
       
       {/* Navbar */}
-      <nav className="p-6 flex justify-between items-center max-w-6xl mx-auto w-full">
-        <div className="flex items-center gap-2 font-bold text-xl text-slate-900">
-          <div className="bg-purple-600 text-white p-1 rounded-lg">
-            <Mic2 size={20} />
+      <nav className="p-6 flex justify-between items-center max-w-7xl mx-auto">
+        <div className="flex items-center gap-2 font-black text-xl tracking-tighter">
+          <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center text-white">
+            <Mic size={18} />
           </div>
-          TM Reserve AI
+          TM Reserve
         </div>
-        
-        <div className="flex items-center gap-4">
-          {/* Conditionally Render VPE Console Link */}
-          {isVPE && (
-            <Link 
-              href="/vpe" 
-              className="hidden sm:flex items-center gap-2 text-xs font-bold text-purple-700 bg-purple-100 px-3 py-1 rounded-full hover:bg-purple-200 transition-colors"
-            >
-              <ShieldCheck size={14}/> VPE Console
-            </Link>
+        <div className="flex items-center gap-6">
+          {/* Top Login Button Logic */}
+          {loading ? (
+             <div className="w-20 h-8 bg-slate-200 rounded animate-pulse"></div>
+          ) : user ? (
+             <Link href="/dashboard" className="text-sm font-bold text-slate-900 hover:text-purple-600">
+               Go to Dashboard
+             </Link>
+          ) : (
+             <Link href="/login" className="text-sm font-medium text-slate-600 hover:text-purple-600">
+	     {/*Login */}
+             </Link>
           )}
 
-          {user ? (
-            <Link href="/dashboard" className="text-sm font-medium text-slate-600 hover:text-purple-600">
-              Go to Dashboard
-            </Link>
-          ) : (
-	  <Link href="/login" className="text-sm font-medium text-slate-600 hover:text-purple-600">
-  		Login
-	  </Link>
-          )}
+          <button 
+            onClick={handleReserveSpot}
+            className="bg-slate-900 text-white px-5 py-2.5 rounded-full text-sm font-bold hover:bg-purple-600 transition-all shadow-lg hover:shadow-purple-200"
+          >
+	  {/* Get Startedi */}
+          </button>
         </div>
       </nav>
 
       {/* Hero Section */}
-      <main className="flex-1 flex flex-col items-center justify-center text-center px-4 max-w-6xl mx-auto space-y-12 py-12">
+      <main className="max-w-5xl mx-auto mt-16 px-6 text-center">
         
-        <div className="space-y-6 max-w-4xl mx-auto">
-          <h1 className="text-5xl md:text-6xl font-black text-slate-900 tracking-tight leading-tight">
-            Master your speaking journey.
-            <span className="block text-purple-600">One role at a time.</span>
-          </h1>
-          <p className="text-xl text-slate-500 max-w-2xl mx-auto">
-            The intelligent way to book Toastmasters roles. 
-            Get AI-driven suggestions and never miss a speaking slot again.
-          </p>
-
-          <div className="flex gap-4 justify-center pt-4">
-            <Link 
-              href="/dashboard"
-              className="flex items-center justify-center gap-2 bg-slate-900 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-slate-800 transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1"
-            >
-              Reserve a Spot <ArrowRight size={20} />
-            </Link>
-          </div>
+        {/* LOGO */}
+        <div className="bg-white w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-8 shadow-sm border border-slate-100 relative overflow-hidden">
+           <Image
+             src="/tm.jpeg"
+             alt="Club Logo"
+             fill
+             className="object-contain p-1"
+           />
         </div>
 
-        {/* NEW: Analytics Section */}
-	{isVPE && (
-        <div className="w-full">
-          <div className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-4">Club Highlights</div>
-          <LandingAnalytics />
+        <div className="inline-flex items-center gap-2 bg-purple-50 text-purple-700 px-4 py-1.5 rounded-full text-sm font-bold mb-6 border border-purple-100">
+          <Star size={14} fill="currentColor" /> The Smart Way to Manage Meetings
         </div>
-	)}
+        
+        <h1 className="text-5xl md:text-7xl font-black tracking-tight text-slate-900 mb-6 leading-tight">
+          Effortless <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-blue-600">AI based Role Signup</span> <br/> for Toastmaster
+        </h1>
+        
+        <p className="text-lg text-slate-500 max-w-2xl mx-auto mb-10 leading-relaxed">
+          Stop using messy spreadsheets. Empower your club members to self-book roles, track progress, and automate notifications instantly.
+        </p>
 
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          
+          {/* --- MAIN ACTION BUTTON --- */}
+          <button 
+            onClick={handleReserveSpot}
+            className="flex items-center gap-2 bg-purple-600 text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-purple-700 transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1"
+          >
+            {loading ? <Loader2 className="animate-spin" /> : "Reserve a spot"} <ArrowRight size={20} />
+          </button>
+          
+        </div>
+
+        {/* Floating Cards (Decorative) */}
+        <div id="features" className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-6 text-left opacity-90">
+          <FeatureCard 
+            icon={<Calendar className="text-blue-500" />}
+            title="Smart Scheduling"
+            desc="View upcoming agendas and lock in your slot instantly."
+          />
+          <FeatureCard 
+            icon={<CheckCircle2 className="text-green-500" />}
+            title="Instant Confirmation"
+            desc="Receive email updates the moment you book a role."
+          />
+          <FeatureCard 
+            icon={<Users className="text-purple-500" />}
+            title="Fair Rotation"
+            desc="AI ensures everyone gets a chance to speak."
+          />
+        </div>
       </main>
 
-      {/* Footer */}
-      <footer className="py-8 text-center text-slate-400 text-sm">
-        <p>&copy; {new Date().getFullYear()} Toastmasters Club. All rights reserved.</p>
-        
-        {/* Mobile VPE Link (Backup) */}
-        {isVPE && (
-          <div className="mt-4 sm:hidden">
-            <Link href="/vpe" className="text-purple-500 font-bold">
-              Access VPE Console
-            </Link>
-          </div>
-        )}
-      </footer>
+    </div>
+  );
+}
+
+function FeatureCard({ icon, title, desc }: any) {
+  return (
+    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:border-purple-100 transition-colors">
+      <div className="bg-slate-50 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
+        {icon}
+      </div>
+      <h3 className="font-bold text-slate-900 text-lg mb-2">{title}</h3>
+      <p className="text-slate-500 leading-relaxed text-sm">{desc}</p>
     </div>
   );
 }

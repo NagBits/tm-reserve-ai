@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import Link from 'next/link';
+import Image from 'next/image'; // <--- Don't forget this import
 import { useRouter } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -14,7 +15,7 @@ import UserStats from '@/components/UserStats';
 import AICoach from '@/components/AICoach';
 
 // Icons
-import { Home, LogOut, ShieldAlert } from 'lucide-react'; // Added ShieldAlert
+import { Home, LogOut, ShieldAlert } from 'lucide-react';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -26,6 +27,7 @@ export default function Dashboard() {
   const listRef = useRef<HTMLDivElement>(null);
 
   // --- 🔒 CHECK IF USER IS VPE ---
+  // Ensure NEXT_PUBLIC_VPE_EMAIL is set in .env.local
   const isVPE = user?.email === process.env.NEXT_PUBLIC_VPE_EMAIL;
 
   const handleDateSelect = (date: Date) => {
@@ -44,13 +46,26 @@ export default function Dashboard() {
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
         
-        {/* Header */}
+        {/* --- HEADER --- */}
         <header className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8 border-b border-slate-200 pb-6">
-           <div>
-             <h1 className="text-3xl font-black text-slate-900">Member Dashboard</h1>
-             <p className="text-slate-500 text-sm mt-1">
-               Welcome back, <span className="font-bold text-slate-700">{user?.displayName || 'Toastmaster'}</span>
-             </p>
+           <div className="flex items-center gap-4">
+             {/* Logo */}
+             <div className="relative w-24 h-24 bg-white rounded-full shadow-sm flex items-center justify-center overflow-hidden">
+                <Image 
+                   src="/tm.jpeg" 
+                   alt="Club Logo"
+                   fill
+                   className="object-contain p-1"
+                />
+             </div>
+             
+             {/* Title */}
+             <div>
+               <h1 className="text-3xl font-black text-slate-900">Member Dashboard</h1>
+               <p className="text-slate-500 text-sm mt-1">
+                 Welcome back, <span className="font-bold text-slate-700">{user?.displayName || 'Toastmaster'}</span>
+               </p>
+             </div>
            </div>
            
            <div className="flex items-center gap-3 w-full md:w-auto flex-wrap justify-center md:justify-end">
