@@ -1,6 +1,6 @@
 import { db } from './firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { sendNotification } from '@/app/actions/email';
+//import { sendNotification } from '@/app/actions/email';
 
 // Configuration
 const VPE_EMAIL = process.env.NEXT_PUBLIC_VPE_EMAIL;
