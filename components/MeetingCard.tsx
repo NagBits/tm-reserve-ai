@@ -57,7 +57,7 @@ export default function MeetingCard({ meeting }: { meeting: Meeting }) {
       const meetingRef = doc(db, "meetings", meeting.id);
       await updateDoc(meetingRef, { slots: sanitizeSlots(updatedSlots) });
 
-      // 3. Send Email
+      // 3. Send Booking Email
       const meetingDate = meeting.timestamp.toDate().toLocaleDateString('en-GB', {
          weekday: 'long', day: 'numeric', month: 'long'
       });
@@ -76,16 +76,15 @@ export default function MeetingCard({ meeting }: { meeting: Meeting }) {
             <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; border: 1px solid #eee; border-radius: 8px;">
               <h2 style="color: #7e22ce; margin-top: 0;">Role Booking Confirmed</h2>
               <p>Hi <strong>${user.displayName}</strong>,</p>
-              <p>You have successfully booked a role for the upcoming meeting.</p>
+              <p>You have successfully booked a role.</p>
               
               <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
                 <p style="margin: 5px 0;"><strong>📅 Date:</strong> ${meetingDate}</p>
                 <p style="margin: 5px 0;"><strong>🎤 Role:</strong> ${roleName}</p>
-                <p style="margin: 5px 0;"><strong>👤 Member:</strong> ${user.email}</p>
               </div>
 
               <p style="font-size: 12px; color: #666; margin-top: 20px;">
-                The VPE (${vpeEmail}) has been copied on this email.
+                The VPE has been notified.
               </p>
             </div>
           `
@@ -108,20 +107,56 @@ export default function MeetingCard({ meeting }: { meeting: Meeting }) {
     try {
       const meetingRef = doc(db, "meetings", meeting.id);
       
+      // 1. Prepare Update
       const updatedSlots = meeting.slots.map((s) => {
         if (s.role === roleName) {
-          // Setting these to undefined is fine here, 
-          // because sanitizeSlots below will strip them out completely.
           return { ...s, userId: undefined, userName: undefined };
         }
         return s;
       });
 
-      // Sanitize ensures we don't send 'undefined' to Firestore
+      // 2. Update Firebase
       await updateDoc(meetingRef, { slots: sanitizeSlots(updatedSlots) });
+
+      // 3. Send Cancellation Email
+      if (user) {
+        const meetingDate = meeting.timestamp.toDate().toLocaleDateString('en-GB', {
+           weekday: 'long', day: 'numeric', month: 'long'
+        });
+
+        const vpeEmail = process.env.NEXT_PUBLIC_VPE_EMAIL;
+        const userEmail = user.email;
+        const recipients = [vpeEmail, userEmail].filter(Boolean).join(',');
+
+        await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: recipients, 
+            subject: `❌ Role Cancelled: ${roleName}`,
+            html: `
+              <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; border: 1px solid #eee; border-radius: 8px;">
+                <h2 style="color: #dc2626; margin-top: 0;">Role Cancelled</h2>
+                <p>Hi <strong>${user.displayName}</strong>,</p>
+                <p>You have cancelled your role. This slot is now available for others to book.</p>
+                
+                <div style="background: #fef2f2; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc2626;">
+                  <p style="margin: 5px 0;"><strong>📅 Date:</strong> ${meetingDate}</p>
+                  <p style="margin: 5px 0;"><strong>🎤 Role:</strong> ${roleName}</p>
+                </div>
+
+                <p style="font-size: 12px; color: #666; margin-top: 20px;">
+                  The VPE has been notified of this cancellation.
+                </p>
+              </div>
+            `
+          })
+        });
+      }
       
     } catch (error) {
       console.error("Error canceling role:", error);
+      alert("Failed to cancel role.");
     } finally {
       setLoading(null);
     }
