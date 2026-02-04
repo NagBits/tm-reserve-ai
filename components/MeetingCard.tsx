@@ -1,113 +1,230 @@
 'use client';
+
 import { useState } from 'react';
+import { db } from '@/lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
-import { reserveRole, cancelRole } from '@/lib/actions';
-import { Calendar, User, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Calendar, Clock, User, Mic, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 
-export default function MeetingCard({ meeting }: { meeting: any }) {
+interface Slot {
+  id: string;
+  role: string;
+  userId?: string;
+  userName?: string;
+}
+
+interface Meeting {
+  id: string;
+  timestamp: any;
+  slots: Slot[];
+}
+
+export default function MeetingCard({ meeting }: { meeting: Meeting }) {
   const { user } = useAuth();
-  const [loadingRole, setLoadingRole] = useState<string | null>(null);
+  const [loading, setLoading] = useState<string | null>(null);
 
-  const handleBook = async (slotIndex: number, roleName: string) => {
-    if (!user) return alert("Please sign in to book a role.");
-    if (!confirm(`Confirm booking for ${roleName}?`)) return;
+  // --- HELPER: Sanitize Data ---
+  // Firestore crashes if you send 'undefined'. This removes undefined keys.
+  const sanitizeSlots = (slots: Slot[]) => {
+    return JSON.parse(JSON.stringify(slots));
+  };
 
-    setLoadingRole(roleName);
+  // --- HANDLE BOOKING ---
+  const handleBook = async (roleName: string) => {
+    if (!user) {
+      alert("Please sign in to book a role.");
+      return;
+    }
+
+    if (!confirm(`Confirm sign-up for ${roleName}?`)) return;
+
+    setLoading(roleName);
+
     try {
-      await reserveRole(meeting.id, slotIndex, user, roleName);
-    } catch (e: any) {
-      alert(e.message);
+      // 1. Update Local State Logic
+      const updatedSlots = meeting.slots.map((s) => {
+        if (s.role === roleName) {
+          return { 
+            ...s, 
+            userId: user.uid, 
+            userName: user.displayName || "Member" 
+          };
+        }
+        return s;
+      });
+
+      // 2. Update Firebase (Sanitized)
+      const meetingRef = doc(db, "meetings", meeting.id);
+      await updateDoc(meetingRef, { slots: sanitizeSlots(updatedSlots) });
+
+      // 3. Send Email
+      const meetingDate = meeting.timestamp.toDate().toLocaleDateString('en-GB', {
+         weekday: 'long', day: 'numeric', month: 'long'
+      });
+
+      const vpeEmail = process.env.NEXT_PUBLIC_VPE_EMAIL;
+      const userEmail = user.email;
+      const recipients = [vpeEmail, userEmail].filter(Boolean).join(',');
+
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: recipients, 
+          subject: `✅ Role Confirmed: ${roleName}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; border: 1px solid #eee; border-radius: 8px;">
+              <h2 style="color: #7e22ce; margin-top: 0;">Role Booking Confirmed</h2>
+              <p>Hi <strong>${user.displayName}</strong>,</p>
+              <p>You have successfully booked a role for the upcoming meeting.</p>
+              
+              <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin: 5px 0;"><strong>📅 Date:</strong> ${meetingDate}</p>
+                <p style="margin: 5px 0;"><strong>🎤 Role:</strong> ${roleName}</p>
+                <p style="margin: 5px 0;"><strong>👤 Member:</strong> ${user.email}</p>
+              </div>
+
+              <p style="font-size: 12px; color: #666; margin-top: 20px;">
+                The VPE (${vpeEmail}) has been copied on this email.
+              </p>
+            </div>
+          `
+        })
+      });
+
+    } catch (error) {
+      console.error("Error booking role:", error);
+      alert("Failed to book role. Please try again.");
     } finally {
-      setLoadingRole(null);
+      setLoading(null);
     }
   };
 
-  const handleCancel = async (slotIndex: number, roleName: string) => {
+  // --- HANDLE CANCEL ---
+  const handleCancel = async (roleName: string) => {
     if (!confirm("Are you sure you want to cancel this role?")) return;
-    
-    setLoadingRole(roleName);
+    setLoading(roleName);
+
     try {
-      await cancelRole(meeting.id, slotIndex, user, roleName);
-    } catch (e: any) {
-      alert(e.message);
+      const meetingRef = doc(db, "meetings", meeting.id);
+      
+      const updatedSlots = meeting.slots.map((s) => {
+        if (s.role === roleName) {
+          // Setting these to undefined is fine here, 
+          // because sanitizeSlots below will strip them out completely.
+          return { ...s, userId: undefined, userName: undefined };
+        }
+        return s;
+      });
+
+      // Sanitize ensures we don't send 'undefined' to Firestore
+      await updateDoc(meetingRef, { slots: sanitizeSlots(updatedSlots) });
+      
+    } catch (error) {
+      console.error("Error canceling role:", error);
     } finally {
-      setLoadingRole(null);
+      setLoading(null);
     }
   };
+
+  const isPast = meeting.timestamp.toDate() < new Date();
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow duration-300">
       
-      {/* Header */}
-      <div className="bg-slate-50 p-4 border-b border-slate-100 flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <div className="bg-white p-2 rounded-lg border border-slate-200 text-purple-600">
-            <Calendar size={20} />
+      {/* HEADER */}
+      <div className="bg-slate-50 p-5 border-b border-slate-100 flex justify-between items-start">
+        <div>
+          <div className="flex items-center gap-2 text-purple-600 font-bold text-xs uppercase tracking-wider mb-1">
+            <Calendar size={14} />
+            {meeting.timestamp.toDate().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
           </div>
-          <div>
-            <h3 className="font-bold text-slate-900">{meeting.date.split(',')[0]}</h3>
-            <p className="text-xs text-slate-500 font-medium">{meeting.date.split(',').slice(1).join(',')}</p>
+          <h3 className="text-2xl font-black text-slate-800">
+            {meeting.timestamp.toDate().getDate()}
+            <span className="text-base font-medium text-slate-400 ml-1">
+               {meeting.timestamp.toDate().toLocaleDateString('en-GB', { weekday: 'long' })}
+            </span>
+          </h3>
+          <div className="flex items-center gap-2 mt-2 text-slate-500 text-sm">
+            <Clock size={14} /> 7:00 PM - 9:00 PM
           </div>
         </div>
-        <div className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full flex items-center gap-1">
-          <Clock size={12} /> Open
-        </div>
+        
+        {isPast && (
+          <span className="bg-slate-200 text-slate-600 px-3 py-1 rounded-full text-xs font-bold">
+            Completed
+          </span>
+        )}
       </div>
 
-      {/* Slots Grid */}
-      <div className="divide-y divide-slate-100">
-        {meeting.slots.map((slot: any, index: number) => {
+      {/* SLOTS LIST */}
+      <div className="divide-y divide-slate-50">
+        {meeting.slots.map((slot) => {
           const isTaken = !!slot.userId;
-          const isMySlot = slot.userId === user?.uid;
-          const isLoading = loadingRole === slot.role;
+          const isMySlot = user && slot.userId === user.uid;
+          const isLoading = loading === slot.role;
 
           return (
-            <div key={index} className="p-4 flex items-center justify-between group hover:bg-slate-50 transition-colors">
+            <div key={slot.role} className={`p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors ${isMySlot ? 'bg-purple-50/50' : 'hover:bg-slate-50'}`}>
               
               {/* Role Info */}
               <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-full ${isTaken ? 'bg-slate-100 text-slate-400' : 'bg-purple-100 text-purple-600'}`}>
-                  <User size={16} />
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isTaken ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
+                  {isTaken ? <CheckCircle2 size={20} /> : <Mic size={20} />}
                 </div>
                 <div>
-                  <p className="font-bold text-slate-800 text-sm">{slot.role}</p>
-                  {isTaken ? (
-                    <p className="text-xs text-slate-500 font-medium flex items-center gap-1">
-                      Taken by <span className="text-slate-900 font-bold">{slot.userName}</span>
-                      {isMySlot && <span className="text-purple-600">(You)</span>}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-green-600 font-bold">Available</p>
-                  )}
+                  <p className="font-bold text-slate-700 text-sm">{slot.role}</p>
+                  <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                    {isTaken ? (
+                      <span className="flex items-center gap-1 text-green-700 font-medium">
+                        <User size={12} /> {slot.userName}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 italic">Available</span>
+                    )}
+                  </p>
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div>
-                {isLoading ? (
-                  <Loader2 className="animate-spin text-slate-400" size={18} />
-                ) : isMySlot ? (
-                  <button 
-                    onClick={() => handleCancel(index, slot.role)}
-                    className="text-xs font-bold text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg border border-red-100 transition-colors flex items-center gap-1"
-                  >
-                    <XCircle size={14}/> Cancel
-                  </button>
-                ) : !isTaken ? (
-                  <button 
-                    onClick={() => handleBook(index, slot.role)}
-                    className="text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg shadow-sm hover:shadow active:scale-95 transition-all flex items-center gap-1"
-                  >
-                    <CheckCircle size={14}/> Book
-                  </button>
-                ) : (
-                  <span className="text-xs text-slate-300 font-mono">LOCKED</span>
-                )}
-              </div>
+              {/* Action Button */}
+              {!isPast && (
+                <div className="shrink-0">
+                  {isTaken ? (
+                    isMySlot ? (
+                      <button 
+                        onClick={() => handleCancel(slot.role)}
+                        disabled={!!loading}
+                        className="text-xs font-bold text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors border border-transparent hover:border-red-100"
+                      >
+                        {isLoading ? <Loader2 className="animate-spin" size={14}/> : "Cancel"}
+                      </button>
+                    ) : (
+                      <span className="text-xs font-medium text-slate-400 px-3 py-1.5">
+                        Taken
+                      </span>
+                    )
+                  ) : (
+                    <button
+                      onClick={() => handleBook(slot.role)}
+                      disabled={!!loading}
+                      className="flex items-center gap-2 text-xs font-bold bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isLoading ? <Loader2 className="animate-spin" size={14} /> : "Book Role"}
+                    </button>
+                  )}
+                </div>
+              )}
 
             </div>
           );
         })}
+        
+        {meeting.slots.length === 0 && (
+           <div className="p-6 text-center text-slate-400 text-sm italic flex flex-col items-center gap-2">
+             <AlertCircle size={20} />
+             No roles available yet.
+           </div>
+        )}
       </div>
     </div>
   );

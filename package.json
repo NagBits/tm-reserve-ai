@@ -20,8 +20,7 @@
     "react": "latest",
     "react-day-picker": "^9.13.0",
     "react-dom": "latest",
-    "react-firebase-hooks": "^5.1.1",
-    "resend": "^6.9.1"
+    "react-firebase-hooks": "^5.1.1"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.1.18",
