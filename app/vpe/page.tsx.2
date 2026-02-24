@@ -1,0 +1,264 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+
+// Firebase & Auth
+import { auth, db } from '@/lib/firebase';
+import { 
+  collection, 
+  query, 
+  orderBy, 
+  onSnapshot, 
+  doc, 
+  updateDoc, 
+  deleteDoc,
+  setDoc,
+  getDoc,
+  Timestamp 
+} from 'firebase/firestore';
+import { useAuth } from '@/context/AuthContext';
+
+// Icons
+import { 
+  Trash2, 
+  Plus, 
+  Settings, 
+  Calendar, 
+  ShieldAlert, 
+  LogOut, 
+  ChevronLeft,
+  Loader2,
+  User,
+  ShieldCheck,
+  UserPlus
+} from 'lucide-react';
+
+interface Slot {
+  role: string;
+  userId?: string;
+  userName?: string;
+}
+
+interface Meeting {
+  id: string;
+  timestamp: Timestamp;
+  slots: Slot[];
+}
+
+interface AdminUser {
+  email: string;
+  role: string;
+}
+
+export default function VPEPage() {
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  
+  // State
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [admins, setAdmins] = useState<AdminUser[]>([]);
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+  const [newRoleNames, setNewRoleNames] = useState<{ [key: string]: string }>({});
+  const [newAdminEmail, setNewAdminEmail] = useState("");
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // 1. Check Authorization (Firestore-based)
+  useEffect(() => {
+    async function checkAuth() {
+      if (!user?.email) {
+        if (!authLoading) setIsAuthorized(false);
+        return;
+      }
+      const adminDoc = await getDoc(doc(db, "admins", user.email.toLowerCase()));
+      setIsAuthorized(adminDoc.exists());
+    }
+    checkAuth();
+  }, [user, authLoading]);
+
+  // 2. Fetch Meetings & Admin List
+  useEffect(() => {
+    if (!isAuthorized) return;
+
+    // Fetch Meetings
+    const qM = query(collection(db, "meetings"), orderBy("timestamp", "desc"));
+    const unsubM = onSnapshot(qM, (snap) => {
+      setMeetings(snap.docs.map(d => ({ id: d.id, ...d.data() } as Meeting)));
+    });
+
+    // Fetch Other Admins
+    const unsubA = onSnapshot(collection(db, "admins"), (snap) => {
+      setAdmins(snap.docs.map(d => ({ email: d.id, role: d.data().role })));
+    });
+
+    return () => { unsubM(); unsubA(); };
+  }, [isAuthorized]);
+
+  if (authLoading || isAuthorized === null) return <div className="p-10 text-center"><Loader2 className="animate-spin mx-auto" /></div>;
+
+  if (!isAuthorized) {
+    return (
+      <div className="max-w-2xl mx-auto mt-20 p-8 bg-red-50 text-red-600 rounded-2xl flex flex-col items-center gap-4 text-center border border-red-100">
+        <ShieldAlert size={48} />
+        <h1 className="text-2xl font-bold">Access Denied</h1>
+        <p>Your email ({user?.email}) is not registered in the VPE whitelist.</p>
+        <Link href="/" className="text-sm underline font-medium text-red-700">Return to Home</Link>
+      </div>
+    );
+  }
+
+  // --- HANDLERS ---
+
+  const sanitizeSlots = (slots: Slot[]) => JSON.parse(JSON.stringify(slots));
+
+  const handleAddRole = async (meetingId: string, currentSlots: Slot[]) => {
+    const roleName = newRoleNames[meetingId]?.trim();
+    if (!roleName) return;
+    setActionLoading(`add-${meetingId}`);
+    try {
+      await updateDoc(doc(db, "meetings", meetingId), { 
+        slots: sanitizeSlots([...currentSlots, { role: roleName }]) 
+      });
+      setNewRoleNames(prev => ({ ...prev, [meetingId]: "" }));
+    } finally { setActionLoading(null); }
+  };
+
+  const handleRemoveRole = async (meetingId: string, currentSlots: Slot[], roleName: string) => {
+    if (!confirm(`Remove "${roleName}"?`)) return;
+    setActionLoading(`remove-${meetingId}-${roleName}`);
+    try {
+      await updateDoc(doc(db, "meetings", meetingId), { 
+        slots: sanitizeSlots(currentSlots.filter(s => s.role !== roleName)) 
+      });
+    } finally { setActionLoading(null); }
+  };
+
+  const handleAddAdmin = async () => {
+    if (!newAdminEmail.includes('@')) return;
+    setActionLoading('add-admin');
+    try {
+      await setDoc(doc(db, "admins", newAdminEmail.toLowerCase().trim()), { role: "VPE" });
+      setNewAdminEmail("");
+    } finally { setActionLoading(null); }
+  };
+
+  const handleRemoveAdmin = async (email: string) => {
+    if (email === user?.email) return alert("You cannot remove yourself!");
+    if (!confirm(`Revoke VPE access for ${email}?`)) return;
+    await deleteDoc(doc(db, "admins", email));
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 pb-20">
+      {/* STICKY HEADER */}
+      <div className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link href="/" className="p-2 hover:bg-slate-100 rounded-full transition-colors"><ChevronLeft size={20} /></Link>
+            <h1 className="text-xl font-black text-slate-800 flex items-center gap-2">
+              <ShieldCheck size={22} className="text-purple-600" /> VPE Control Center
+            </h1>
+          </div>
+          <button onClick={() => auth.signOut()} className="text-sm font-bold text-slate-500 hover:text-red-600 flex items-center gap-2">
+            <LogOut size={16} /> Sign Out
+          </button>
+        </div>
+      </div>
+
+      <main className="max-w-5xl mx-auto px-6 mt-8 space-y-8">
+        
+        {/* ADMIN MANAGEMENT SECTION */}
+        <section className="bg-purple-900 rounded-3xl p-8 text-white shadow-xl shadow-purple-200">
+          <div className="flex items-center gap-3 mb-6">
+            <UserPlus className="text-purple-300" />
+            <h2 className="text-xl font-bold">VPE Access List</h2>
+          </div>
+          
+          <div className="grid md:grid-cols-2 gap-8">
+            {/* List */}
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+              {admins.map(admin => (
+                <div key={admin.email} className="flex items-center justify-between bg-white/10 p-3 rounded-xl border border-white/10">
+                  <span className="text-sm font-medium">{admin.email}</span>
+                  {admin.email !== user?.email && (
+                    <button onClick={() => handleRemoveAdmin(admin.email)} className="text-purple-300 hover:text-red-400 p-1">
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            {/* Add Form */}
+            <div className="space-y-3">
+              <p className="text-sm text-purple-200">Grant admin rights to a new email address:</p>
+              <div className="flex gap-2">
+                <input 
+                  type="email" 
+                  placeholder="name@gmail.com"
+                  className="flex-1 bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-sm outline-none focus:bg-white focus:text-slate-900 transition-all"
+                  value={newAdminEmail}
+                  onChange={(e) => setNewAdminEmail(e.target.value)}
+                />
+                <button 
+                  onClick={handleAddAdmin}
+                  disabled={actionLoading === 'add-admin'}
+                  className="bg-white text-purple-900 px-4 py-2 rounded-xl font-bold text-sm hover:bg-purple-100 transition-all disabled:opacity-50"
+                >
+                  {actionLoading === 'add-admin' ? '...' : 'Add VPE'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* MEETINGS MANAGEMENT SECTION */}
+        <div className="space-y-6">
+          <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+            <Calendar className="text-purple-600" /> Manage Meetings
+          </h2>
+          
+          {meetings.map((meeting) => (
+            <div key={meeting.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className="bg-slate-800 p-4 flex justify-between items-center text-white">
+                <span className="font-bold">
+                  {meeting.timestamp.toDate().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                </span>
+                <button onClick={() => deleteDoc(doc(db, "meetings", meeting.id))} className="text-xs font-bold bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white px-3 py-1.5 rounded-lg transition-all">
+                  Delete
+                </button>
+              </div>
+
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-3">
+                {meeting.slots.map((slot) => (
+                  <div key={slot.role} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 group">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-slate-700">{slot.role}</span>
+                      {slot.userId && <span className="text-[10px] text-purple-600 font-medium flex items-center gap-1 uppercase tracking-wider"><User size={10} /> {slot.userName}</span>}
+                    </div>
+                    <button onClick={() => handleRemoveRole(meeting.id, meeting.slots, slot.role)} className="text-slate-300 hover:text-red-500 p-1">
+                      {actionLoading === `remove-${meeting.id}-${slot.role}` ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={16} />}
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="px-6 py-4 bg-slate-50 border-t flex gap-2">
+                <input 
+                  type="text" 
+                  placeholder="New role name..."
+                  className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:border-purple-500 transition-all"
+                  value={newRoleNames[meeting.id] || ""}
+                  onChange={(e) => setNewRoleNames(prev => ({ ...prev, [meeting.id]: e.target.value }))}
+                />
+                <button onClick={() => handleAddRole(meeting.id, meeting.slots)} disabled={!newRoleNames[meeting.id]?.trim()} className="bg-slate-900 text-white hover:bg-purple-600 disabled:opacity-50 px-5 py-2 rounded-xl text-sm font-bold transition-all">
+                  Add Role
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </main>
+    </div>
+  );
+}

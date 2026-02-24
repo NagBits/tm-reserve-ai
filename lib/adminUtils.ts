@@ -3,7 +3,7 @@ import { collection, addDoc, Timestamp, getDocs, writeBatch, doc, query, orderBy
 
 // 1. Role Definitions (Matches your Spreadsheet/Grid)
 export const ROLE_GROUPS = {
-  "Core Team": ["SAA", "President", "TMOD", "TTM"],
+//  "Core Team": ["SAA", "President", "TMOD", "TTM"],
   "GE Team": ["General Evaluator", "Timer", "Ah-Counter", "Listener", "Grammarian"],
   "Prepared Speeches": ["Speaker 1", "Speaker 2", "Speaker 3", "Speaker 4", "Speaker 5", "Speaker 6"],
   "Evaluators": ["Evaluator 1", "Evaluator 2", "Evaluator 3", "Evaluator 4", "Evaluator 5", "Evaluator 6"]

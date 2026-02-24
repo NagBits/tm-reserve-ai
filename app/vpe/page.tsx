@@ -27,6 +27,7 @@ import {
 export default function VPEPage() {
   const { user, loading: authLoading } = useAuth(); // <--- Get current user
   const router = useRouter();
+  const [newRoleNames, setNewRoleNames] = useState<{ [key: string]: string }>({});
   
   // State
   const [status, setStatus] = useState(""); 
@@ -145,10 +146,6 @@ export default function VPEPage() {
     );
   }
 
-  // If user is loaded but not authorized (and useEffect hasn't redirected yet), hide content
-  if (!user || user.email !== process.env.NEXT_PUBLIC_VPE_EMAIL) {
-    return null; 
-  }
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -247,12 +244,12 @@ export default function VPEPage() {
 
             <div className="flex-1"></div>
 
-            <button 
+	    {/*  <button 
               onClick={() => runTask(wipeAllMeetings, "All data wiped.")}
               className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-lg font-bold transition-colors border border-red-100"
             >
               <Trash2 size={18} /> Reset Database
-            </button>
+            </button> */}
           </div>
         </div>
 

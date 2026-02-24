@@ -162,6 +162,50 @@ export default function MeetingCard({ meeting }: { meeting: Meeting }) {
     }
   };
 
+  // --- NEW: VPE Add Role ---
+  const handleAddRole = async () => {
+    if (!newRoleName.trim()) return;
+
+    // Prevent duplicate roles
+    if (meeting.slots.some(s => s.role.toLowerCase() === newRoleName.trim().toLowerCase())) {
+      alert("This role already exists in this meeting.");
+      return;
+    }
+
+    setLoading("adding-role");
+    try {
+      const meetingRef = doc(db, "meetings", meeting.id);
+      const updatedSlots = [...meeting.slots, { role: newRoleName.trim() }];
+
+      await updateDoc(meetingRef, { slots: sanitizeSlots(updatedSlots) });
+      setNewRoleName(""); // Clear input
+    } catch (error) {
+      console.error("Error adding role:", error);
+      alert("Failed to add role.");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  // --- NEW: VPE Remove Role ---
+  const handleRemoveRole = async (roleName: string) => {
+    if (!confirm(`Are you sure you want to completely delete the "${roleName}" role from this meeting?`)) return;
+
+    setLoading(`removing-${roleName}`);
+    try {
+      const meetingRef = doc(db, "meetings", meeting.id);
+      // Filter out the role to delete it
+      const updatedSlots = meeting.slots.filter(s => s.role !== roleName);
+
+      await updateDoc(meetingRef, { slots: sanitizeSlots(updatedSlots) });
+    } catch (error) {
+      console.error("Error removing role:", error);
+      alert("Failed to remove role.");
+    } finally {
+      setLoading(null);
+    }
+  };
+
   const isPast = meeting.timestamp.toDate() < new Date();
 
   return (

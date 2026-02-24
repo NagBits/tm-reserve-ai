@@ -23,7 +23,7 @@ export default function MeetingList({ selectedDate }: MeetingListProps) {
     // Fetch ALL future meetings first, then we filter in memory
     const q = query(
       collection(db, "meetings"),
-      where("timestamp", ">=", Timestamp.fromDate(now)),
+      //where("timestamp", ">=", Timestamp.fromDate(now)),
       orderBy("timestamp", "asc")
     );
 
