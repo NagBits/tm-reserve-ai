@@ -44,10 +44,10 @@ export default function MeetingCard({ meeting }: { meeting: Meeting }) {
       // 1. Update Local State Logic
       const updatedSlots = meeting.slots.map((s) => {
         if (s.role === roleName) {
-          return { 
-            ...s, 
-            userId: user.uid, 
-            userName: user.displayName || "Member" 
+          return {
+            ...s,
+            userId: user.uid,
+            userName: user.displayName || "Member"
           };
         }
         return s;
@@ -59,7 +59,7 @@ export default function MeetingCard({ meeting }: { meeting: Meeting }) {
 
       // 3. Send Booking Email
       const meetingDate = meeting.timestamp.toDate().toLocaleDateString('en-GB', {
-         weekday: 'long', day: 'numeric', month: 'long'
+        weekday: 'long', day: 'numeric', month: 'long'
       });
 
       const vpeEmail = process.env.NEXT_PUBLIC_VPE_EMAIL;
@@ -70,7 +70,7 @@ export default function MeetingCard({ meeting }: { meeting: Meeting }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: recipients, 
+          to: recipients,
           subject: `✅ Role Confirmed: ${roleName}`,
           html: `
             <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; border: 1px solid #eee; border-radius: 8px;">
@@ -106,7 +106,7 @@ export default function MeetingCard({ meeting }: { meeting: Meeting }) {
 
     try {
       const meetingRef = doc(db, "meetings", meeting.id);
-      
+
       // 1. Prepare Update
       const updatedSlots = meeting.slots.map((s) => {
         if (s.role === roleName) {
@@ -121,7 +121,7 @@ export default function MeetingCard({ meeting }: { meeting: Meeting }) {
       // 3. Send Cancellation Email
       if (user) {
         const meetingDate = meeting.timestamp.toDate().toLocaleDateString('en-GB', {
-           weekday: 'long', day: 'numeric', month: 'long'
+          weekday: 'long', day: 'numeric', month: 'long'
         });
 
         const vpeEmail = process.env.NEXT_PUBLIC_VPE_EMAIL;
@@ -132,7 +132,7 @@ export default function MeetingCard({ meeting }: { meeting: Meeting }) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            to: recipients, 
+            to: recipients,
             subject: `❌ Role Cancelled: ${roleName}`,
             html: `
               <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; border: 1px solid #eee; border-radius: 8px;">
@@ -153,7 +153,7 @@ export default function MeetingCard({ meeting }: { meeting: Meeting }) {
           })
         });
       }
-      
+
     } catch (error) {
       console.error("Error canceling role:", error);
       alert("Failed to cancel role.");
@@ -166,7 +166,7 @@ export default function MeetingCard({ meeting }: { meeting: Meeting }) {
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow duration-300">
-      
+
       {/* HEADER */}
       <div className="bg-slate-50 p-5 border-b border-slate-100 flex justify-between items-start">
         <div>
@@ -177,14 +177,14 @@ export default function MeetingCard({ meeting }: { meeting: Meeting }) {
           <h3 className="text-2xl font-black text-slate-800">
             {meeting.timestamp.toDate().getDate()}
             <span className="text-base font-medium text-slate-400 ml-1">
-               {meeting.timestamp.toDate().toLocaleDateString('en-GB', { weekday: 'long' })}
+              {meeting.timestamp.toDate().toLocaleDateString('en-GB', { weekday: 'long' })}
             </span>
           </h3>
           <div className="flex items-center gap-2 mt-2 text-slate-500 text-sm">
-            <Clock size={14} /> 7:00 PM - 9:00 PM
+            <Clock size={14} /> 11:00 AM - 1:00 PM
           </div>
         </div>
-        
+
         {isPast && (
           <span className="bg-slate-200 text-slate-600 px-3 py-1 rounded-full text-xs font-bold">
             Completed
@@ -201,7 +201,7 @@ export default function MeetingCard({ meeting }: { meeting: Meeting }) {
 
           return (
             <div key={slot.role} className={`p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors ${isMySlot ? 'bg-purple-50/50' : 'hover:bg-slate-50'}`}>
-              
+
               {/* Role Info */}
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isTaken ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
@@ -226,12 +226,12 @@ export default function MeetingCard({ meeting }: { meeting: Meeting }) {
                 <div className="shrink-0">
                   {isTaken ? (
                     isMySlot ? (
-                      <button 
+                      <button
                         onClick={() => handleCancel(slot.role)}
                         disabled={!!loading}
                         className="text-xs font-bold text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors border border-transparent hover:border-red-100"
                       >
-                        {isLoading ? <Loader2 className="animate-spin" size={14}/> : "Cancel"}
+                        {isLoading ? <Loader2 className="animate-spin" size={14} /> : "Cancel"}
                       </button>
                     ) : (
                       <span className="text-xs font-medium text-slate-400 px-3 py-1.5">
@@ -253,12 +253,12 @@ export default function MeetingCard({ meeting }: { meeting: Meeting }) {
             </div>
           );
         })}
-        
+
         {meeting.slots.length === 0 && (
-           <div className="p-6 text-center text-slate-400 text-sm italic flex flex-col items-center gap-2">
-             <AlertCircle size={20} />
-             No roles available yet.
-           </div>
+          <div className="p-6 text-center text-slate-400 text-sm italic flex flex-col items-center gap-2">
+            <AlertCircle size={20} />
+            No roles available yet.
+          </div>
         )}
       </div>
     </div>
