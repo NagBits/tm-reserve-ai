@@ -16,9 +16,9 @@ export default function LoginPage() {
   const handleGoogleLogin = async () => {
     setLoading(true);
     setError('');
-    
+
     const provider = new GoogleAuthProvider();
-    
+
     try {
       await signInWithPopup(auth, provider);
       // Successful login -> Redirect to Dashboard
@@ -26,13 +26,13 @@ export default function LoginPage() {
     } catch (err: any) {
       console.error("Login Failed:", err);
       let msg = "Failed to sign in. Please try again.";
-      
+
       if (err.code === 'auth/popup-closed-by-user') {
         msg = "Sign-in cancelled.";
       } else if (err.code === 'auth/configuration-not-found') {
         msg = "Google Sign-In is not enabled in your Firebase Console.";
       }
-      
+
       setError(msg);
       setLoading(false);
     }
@@ -41,14 +41,15 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
-        
+
         {/* --- LOGO SECTION --- */}
         <div className="bg-white w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100 relative overflow-hidden">
-          <Image 
-            src="/tm.jpeg" 
-            alt="Club Logo" 
+          <Image
+            src="/tm.jpeg"
+            alt="Club Logo"
             fill
-            className="object-contain p-1" 
+            sizes="96px"
+            className="object-contain p-1"
           />
         </div>
 

@@ -1,66 +1,87 @@
 'use client';
 
-// 1. React & Next.js
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 // 2. Firebase & Auth
 import { signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
-import { useAuth } from '@/context/AuthContext'; // <--- IMPORT THIS
-import { collection, getDocs, query, where, Timestamp, orderBy } from 'firebase/firestore';
+import { useAuth } from '@/context/AuthContext';
+import { collection, getDocs, query, where, Timestamp, orderBy, doc, onSnapshot, setDoc } from 'firebase/firestore';
 
 // 3. Admin Utilities
-import { seedSaturdays, wipeAllMeetings, openNextMonth } from '@/lib/adminUtils';
+import { seedSaturdays, openNextMonth } from '@/lib/adminUtils';
 
 // 4. Components
 import VPEGrid from '@/components/VPEGrid';
 
 // 5. Icons
-import { 
-  LayoutDashboard, CalendarDays, Users, AlertCircle, 
-  PlusCircle, Trash2, Check, Loader2, RefreshCw, 
-  ArrowLeft, Home, LogOut, ShieldAlert
+import {
+  CalendarDays, Users, AlertCircle,
+  PlusCircle, Check, Loader2, RefreshCw, X,
+  ArrowLeft, Home, LogOut, ShieldAlert, Zap,
+  Settings, ChevronRight, Activity, Database
 } from 'lucide-react';
 
 export default function VPEPage() {
-  const { user, loading: authLoading } = useAuth(); // <--- Get current user
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  
-  // State
-  const [status, setStatus] = useState(""); 
+
+  const [status, setStatus] = useState<{ msg: string; type: 'success' | 'error' | 'info' | '' }>({ msg: '', type: '' });
   const [loadingStats, setLoadingStats] = useState(true);
-  const [stats, setStats] = useState({ 
-    total: 0, 
-    openSlots: 0, 
-    nextDate: '-' 
+  const [stats, setStats] = useState({
+    total: 0,
+    openSlots: 0,
+    nextDate: '-'
   });
+
+  const vpeEmail = process.env.NEXT_PUBLIC_VPE_EMAIL;
+  const [admins, setAdmins] = useState<string[]>([]);
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
 
   // --- 🔒 AUTHENTICATION GATEKEEPER 🔒 ---
   useEffect(() => {
-    // 1. Wait for auth to initialize
     if (authLoading) return;
-
-    // 2. If not logged in, kick to login page
     if (!user) {
       router.push('/login');
       return;
     }
 
-    // 3. If logged in but NOT the VPE, kick to Member Dashboard
-    // Make sure NEXT_PUBLIC_VPE_EMAIL is set in your .env.local file!
-    const vpeEmail = process.env.NEXT_PUBLIC_VPE_EMAIL;
-    
-    if (user.email !== vpeEmail) {
-      console.warn(`Access Denied. User ${user.email} is not VPE (${vpeEmail})`);
-      router.push('/dashboard'); 
-    } else {
-      // Only fetch data if we are authorized
+    // Optimization: If primary VPE, grant access immediately
+    if (user.email?.toLowerCase() === vpeEmail?.toLowerCase()) {
+      setIsAdmin(true);
       fetchStats();
     }
-  }, [user, authLoading, router]);
 
+    // Fetch additional admins
+    const unsub = onSnapshot(doc(db, "settings", "admins"), (docSnap) => {
+      const adminList = docSnap.exists() ? (docSnap.data().list || []) as string[] : [];
+      setAdmins(adminList);
+
+      const userEmail = user.email?.toLowerCase();
+      const primaryVpeEmail = vpeEmail?.toLowerCase();
+      const isUserAdmin = (!!userEmail && !!primaryVpeEmail && userEmail === primaryVpeEmail) || (!!userEmail && adminList.includes(userEmail));
+      setIsAdmin(isUserAdmin);
+
+      if (!isUserAdmin) {
+        router.push('/dashboard');
+      } else if (userEmail !== primaryVpeEmail) {
+        fetchStats();
+      }
+    }, (error) => {
+      console.error("Admins fetch error:", error);
+      // Fallback: strictly check primary VPE if list fetch fails
+      const userEmail = user.email?.toLowerCase();
+      const primaryVpeEmail = vpeEmail?.toLowerCase();
+      const isUserAdmin = !!userEmail && !!primaryVpeEmail && userEmail === primaryVpeEmail;
+      setIsAdmin(isUserAdmin);
+      if (!isUserAdmin) router.push('/dashboard');
+      else fetchStats();
+    });
+
+    return () => unsub();
+  }, [user, authLoading, router, vpeEmail]);
 
   // --- STATS LOGIC ---
   const fetchStats = async () => {
@@ -77,7 +98,7 @@ export default function VPEPage() {
 
       const snapshot = await getDocs(q);
       const totalMeetings = snapshot.size;
-      
+
       let openSlotsCount = 0;
       let nextMeetingDate = '-';
 
@@ -114,16 +135,16 @@ export default function VPEPage() {
   // --- ACTION RUNNER ---
   const runTask = async (task: () => Promise<any>, successMessage: string) => {
     if (!confirm("Are you sure you want to proceed with this administrative action?")) return;
-    
-    setStatus("Processing...");
+
+    setStatus({ msg: "Processing request...", type: 'info' });
     try {
       await task();
-      setStatus(`✅ ${successMessage}`);
-      fetchStats(); 
-      setTimeout(() => setStatus(""), 4000);
+      setStatus({ msg: successMessage, type: 'success' });
+      fetchStats();
+      setTimeout(() => setStatus({ msg: '', type: '' }), 4000);
     } catch (e: any) {
       console.error(e);
-      setStatus(`❌ Error: ${e.message}`);
+      setStatus({ msg: `Error: ${e.message}`, type: 'error' });
     }
   };
 
@@ -132,140 +153,422 @@ export default function VPEPage() {
     router.push('/');
   };
 
-  // --- LOADING SCREEN ---
-  // If we are checking auth, show a full screen loader so they see nothing.
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="animate-spin text-purple-600" size={48} />
-          <p className="text-slate-500 font-medium">Verifying Credentials...</p>
+      <div className="min-h-screen flex items-center justify-center bg-slate-950">
+        <div className="flex flex-col items-center gap-6">
+          <div className="relative">
+            <div className="absolute inset-0 bg-purple-500 blur-2xl opacity-20 animate-pulse"></div>
+            <Loader2 className="animate-spin text-purple-500 relative z-10" size={64} strokeWidth={1.5} />
+          </div>
+          <p className="text-slate-400 font-bold tracking-widest uppercase text-xs">Accessing Command Center</p>
         </div>
       </div>
     );
   }
 
-  // If user is loaded but not authorized (and useEffect hasn't redirected yet), hide content
-  if (!user || user.email !== process.env.NEXT_PUBLIC_VPE_EMAIL) {
-    return null; 
-  }
+  if (!user || isAdmin === false) return null;
+  if (isAdmin === null) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-950">
+      <Loader2 className="animate-spin text-purple-500" size={48} />
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      
-      {/* --- TOP NAVIGATION BAR --- */}
-      <div className="bg-slate-900 text-white p-4 sticky top-0 z-50 shadow-md">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-          
-          <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-start">
-            <Link 
-              href="/" 
-              className="p-2 bg-slate-800 rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
-              title="Back to Landing Page"
+    <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-purple-500/30">
+
+      {/* --- PREMIUM TOP NAVIGATION --- */}
+      <nav className="glass-dark sticky top-0 z-50 border-b border-slate-800/50">
+        <div className="max-w-[1600px] mx-auto px-6 h-20 flex items-center justify-between">
+
+          <div className="flex items-center gap-6">
+            <Link
+              href="/dashboard"
+              className="group p-2.5 bg-slate-900 border border-slate-800 rounded-2xl hover:bg-slate-800 transition-all duration-300"
             >
-              <ArrowLeft size={20} />
+              <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
             </Link>
 
-            <div className="flex items-center gap-2 font-bold text-xl tracking-tight">
-              <div className="bg-purple-600 p-1 rounded">
-                <LayoutDashboard size={20} className="text-white" />
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2 font-black text-xl tracking-tighter uppercase italic">
+                <span className="text-purple-500"><Database size={24} /></span>
+                VPE <span className="text-slate-500">Terminal</span>
               </div>
-              VPE Portal
+              <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 tracking-widest uppercase">
+                <ShieldAlert size={10} className="text-amber-500" /> Administrative Environment
+              </div>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
-             <div className="text-xs text-slate-400 font-mono hidden md:block flex items-center gap-1">
-               <ShieldAlert size={12}/> ADMIN MODE ACTIVE
-             </div>
-             
-             <Link href="/dashboard" className="text-xs font-bold text-slate-300 hover:text-white flex items-center gap-1 bg-slate-800 px-3 py-1.5 rounded-full transition-colors">
-               <Home size={14}/> Member App
-             </Link>
+            <div className="hidden lg:flex items-center gap-8 mr-8">
+              <div className="flex flex-col items-end">
+                <span className="text-[10px] font-black text-slate-600 uppercase tracking-tighter">System Status</span>
+                <span className="text-xs font-bold text-emerald-500 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Operational
+                </span>
+              </div>
+              <div className="h-8 w-px bg-slate-800"></div>
+            </div>
 
-             <button 
-               onClick={handleSignOut}
-               className="text-xs font-bold text-red-200 hover:text-white hover:bg-red-900 flex items-center gap-1 bg-slate-800 px-3 py-1.5 rounded-full transition-colors border border-transparent hover:border-red-800"
-             >
-               <LogOut size={14}/> Sign Out
-             </button>
+            <button
+              onClick={handleSignOut}
+              className="group flex items-center gap-2 px-5 py-2.5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-2xl font-black text-xs uppercase tracking-tighter transition-all duration-300 border border-red-500/20"
+            >
+              <LogOut size={14} className="group-hover:translate-x-1 transition-transform" /> Sign Out
+            </button>
           </div>
         </div>
-      </div>
+      </nav>
 
-      <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-8">
-        
-        {/* --- STATUS MESSAGE --- */}
-        {status && (
-          <div className={`p-4 rounded-xl font-bold text-center animate-pulse ${status.includes('Error') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-            {status}
+      <main className="max-w-[1600px] mx-auto p-6 lg:p-10 space-y-10">
+
+        {/* --- DYNAMIC ALERT OVERLAY --- */}
+        {status.msg && (
+          <div className={`fixed bottom-10 right-10 z-[100] p-5 rounded-3xl border shadow-2xl animate-float backdrop-blur-xl flex items-center gap-4 min-w-[300px]
+            ${status.type === 'error' ? 'bg-red-950/80 border-red-500/50 text-red-200' :
+              status.type === 'success' ? 'bg-emerald-950/80 border-emerald-500/50 text-emerald-200' :
+                'bg-blue-950/80 border-blue-500/50 text-blue-200'}`}>
+            <div className={`p-2 rounded-xl transition-colors ${status.type === 'error' ? 'bg-red-500' : status.type === 'success' ? 'bg-emerald-500' : 'bg-blue-500'}`}>
+              {status.type === 'error' ? <AlertCircle size={20} /> : <Zap size={20} />}
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black uppercase tracking-widest opacity-60">System Notification</span>
+              <span className="text-sm font-bold">{status.msg}</span>
+            </div>
           </div>
         )}
 
-        {/* --- STATS OVERVIEW --- */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <StatCard 
-            icon={<CalendarDays className="text-blue-600" />}
-            label="Upcoming Meetings"
-            value={stats.total}
+        {/* --- COMMAND CENTER STATS --- */}
+        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatPanel
+            icon={<CalendarDays className="text-blue-400" />}
+            label="Active Cycle"
+            value={`${stats.total} Meetings`}
+            subtext="Upcoming scheduled sessions"
             loading={loadingStats}
           />
-          <StatCard 
-            icon={<Users className="text-purple-600" />}
-            label="Open Roles"
+          <StatPanel
+            icon={<Users className="text-purple-400" />}
+            label="Open Slots"
             value={stats.openSlots}
+            subtext="Roles requiring assignment"
             loading={loadingStats}
+            highlight={stats.openSlots > 5}
           />
-          <StatCard 
-            icon={<AlertCircle className="text-orange-600" />}
-            label="Next Session"
+          <StatPanel
+            icon={<Activity className="text-amber-400" />}
+            label="Nearest Session"
             value={stats.nextDate}
+            subtext="Countdown initiated"
             loading={loadingStats}
           />
-        </div>
-
-        {/* --- ADMIN TOOLBAR --- */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-            <RefreshCw size={18} /> Quick Actions
-          </h2>
-          <div className="flex flex-wrap gap-4">
-            
-            <button 
-              onClick={() => runTask(seedSaturdays, "Current month generated!")}
-              className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-800 px-4 py-2 rounded-lg font-bold transition-colors"
-            >
-              <PlusCircle size={18} /> Seed Current Month
-            </button>
-
-            <button 
-              onClick={() => runTask(openNextMonth, "Next month opened!")}
-              className="flex items-center gap-2 bg-purple-100 hover:bg-purple-200 text-purple-700 px-4 py-2 rounded-lg font-bold transition-colors"
-            >
-              <Check size={18} /> Open Next Month
-            </button>
-
-            <div className="flex-1"></div>
-
-            <button 
-              onClick={() => runTask(wipeAllMeetings, "All data wiped.")}
-              className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-lg font-bold transition-colors border border-red-100"
-            >
-              <Trash2 size={18} /> Reset Database
-            </button>
+          <div className="glass-dark p-6 rounded-[2rem] border-slate-800/50 flex flex-col justify-between group hover:border-purple-500/50 transition-all duration-500">
+            <div className="flex justify-between items-start">
+              <div className="p-3 bg-slate-900 rounded-2xl border border-slate-800 group-hover:bg-purple-500/10 transition-colors">
+                <Settings className="text-slate-400 group-hover:text-purple-400" size={24} />
+              </div>
+              <Zap size={16} className="text-purple-500 animate-pulse" />
+            </div>
+            <div className="mt-4">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">VPE Meta</h3>
+              <p className="text-lg font-black">{user.displayName?.split(' ')[0] || 'Admin'}</p>
+              <div className="w-full bg-slate-900 h-1 mt-3 rounded-full overflow-hidden">
+                <div className="bg-purple-600 h-full w-[70%]" />
+              </div>
+            </div>
           </div>
+        </section>
+
+        {/* --- QUICK ACTION COMMANDS --- */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+
+          <section className="glass-dark p-8 rounded-[2.5rem] border-slate-800/50 relative overflow-hidden lg:col-span-2">
+            <div className="absolute top-0 right-0 p-8 opacity-5">
+              <Settings size={200} className="animate-[spin_20s_linear_infinite]" />
+            </div>
+
+            <div className="relative z-10 flex flex-col gap-8 h-full justify-center">
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-2xl font-black uppercase tracking-tighter italic">Deployment <span className="text-purple-500">Hub</span></h2>
+                  <div className="h-px w-20 bg-slate-800"></div>
+                </div>
+                <p className="text-slate-500 text-sm max-w-md font-medium">Execute administrative routines to initialize or extend the club's meeting schedule.</p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-4">
+                <ActionButton
+                  onClick={() => runTask(seedSaturdays, "Current cycle initialized")}
+                  icon={<PlusCircle size={20} />}
+                  label="Start New Term"
+                  variant="slate"
+                />
+                <ActionButton
+                  onClick={() => runTask(openNextMonth, "Schedule extended successfully")}
+                  icon={<Check size={20} />}
+                  label="Add More Meetings"
+                  variant="purple"
+                />
+                <div className="w-px h-12 bg-slate-800 mx-2 hidden lg:block" />
+              </div>
+            </div>
+          </section>
+
+          {/* --- ROLE ARCHITECTURE MANAGEMENT --- */}
+          <div className="flex flex-col gap-10">
+            <RoleManager />
+            <AdminManager />
+          </div>
+
         </div>
 
-        {/* --- MAIN MANAGEMENT GRID --- */}
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 mb-6">Manage Schedule</h2>
-          <VPEGrid />
-        </div>
+        {/* --- INFORMATION GRID --- */}
+        <section className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-900/40">
+                <Activity className="text-white" size={24} />
+              </div>
+              <div>
+                <h2 className="text-3xl font-black italic tracking-tighter uppercase">Master <span className="text-slate-500">Grid</span></h2>
+                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Live Role Management System</p>
+              </div>
+            </div>
+            <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-slate-900 rounded-full border border-slate-800">
+              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Live Sync Active</span>
+            </div>
+          </div>
 
+          <div className="glass-dark p-2 rounded-[2.5rem] border-slate-800 shadow-2xl">
+            <VPEGrid />
+          </div>
+        </section>
+
+      </main>
+    </div>
+  );
+}
+
+// --- SUBCOMPONENTS ---
+
+function RoleManager() {
+  const [roles, setRoles] = useState<string[]>([]);
+  const [newRole, setNewRole] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const rolesRef = doc(db, "settings", "roles");
+
+  useEffect(() => {
+    const unsub = onSnapshot(rolesRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const list = (docSnap.data().list || []) as string[];
+        // Filter for unique roles to prevent key errors
+        setRoles(list.filter((role, idx) => list.indexOf(role) === idx));
+      }
+      setLoading(false);
+    }, (error) => {
+      console.error("Roles manager fetch error:", error);
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  const addRole = async () => {
+    if (!newRole.trim()) return;
+    if (roles.includes(newRole.trim())) {
+      alert("Role already exists");
+      return;
+    }
+    const updated = [...roles, newRole.trim()];
+    await setDoc(rolesRef, { list: updated });
+    setNewRole("");
+  };
+
+  const removeRole = async (roleToRemove: string) => {
+    if (!confirm(`Are you sure you want to remove the role: ${roleToRemove}?`)) return;
+    const updated = roles.filter(r => r !== roleToRemove);
+    await setDoc(rolesRef, { list: updated });
+  };
+
+  return (
+    <section className="glass-dark p-8 rounded-[2.5rem] border-slate-800/50 flex flex-col h-full">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col">
+          <h2 className="text-xl font-black uppercase tracking-tighter italic">Role <span className="text-purple-500">Architecture</span></h2>
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Schema Management</span>
+        </div>
+        <div className="p-2 bg-slate-900 rounded-xl border border-slate-800">
+          <Database size={16} className="text-purple-500" />
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-auto custom-scrollbar pr-2 mb-6 max-h-[200px]">
+        <div className="flex flex-wrap gap-2">
+          {roles.map(role => (
+            <div key={role} className="group relative flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-wider text-slate-400 hover:border-purple-500/50 transition-colors">
+              {role}
+              <button
+                onClick={() => removeRole(role)}
+                className="opacity-0 group-hover:opacity-100 text-red-500 hover:scale-125 transition-all"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-auto flex gap-2">
+        <input
+          value={newRole}
+          onChange={(e) => setNewRole(e.target.value)}
+          placeholder="New Role Name..."
+          className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl px-4 py-2 text-xs font-bold outline-none focus:border-purple-500 transition-colors"
+          onKeyDown={(e) => e.key === 'Enter' && addRole()}
+        />
+        <button
+          onClick={addRole}
+          className="p-3 bg-purple-600 rounded-2xl text-white hover:bg-purple-500 transition-colors shadow-lg shadow-purple-900/40"
+        >
+          <PlusCircle size={20} />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function AdminManager() {
+  const [admins, setAdmins] = useState<string[]>([]);
+  const [newAdmin, setNewAdmin] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const adminsRef = doc(db, "settings", "admins");
+
+  useEffect(() => {
+    const unsub = onSnapshot(adminsRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setAdmins(docSnap.data().list || []);
+      }
+      setLoading(false);
+    }, (error) => {
+      console.error("Admins manager fetch error:", error);
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  const addAdmin = async () => {
+    if (!newAdmin.trim()) return;
+    if (admins.includes(newAdmin.trim().toLowerCase())) {
+      alert("Admin already exists");
+      return;
+    }
+    const updated = [...admins, newAdmin.trim().toLowerCase()];
+    await setDoc(adminsRef, { list: updated });
+    setNewAdmin("");
+  };
+
+  const removeAdmin = async (adminToRemove: string) => {
+    if (!confirm(`Are you sure you want to remove admin access for: ${adminToRemove}?`)) return;
+    const updated = admins.filter(a => a !== adminToRemove);
+    await setDoc(adminsRef, { list: updated });
+  };
+
+  return (
+    <section className="glass-dark p-8 rounded-[2.5rem] border-slate-800/50 flex flex-col h-full">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col">
+          <h2 className="text-xl font-black uppercase tracking-tighter italic">Admin <span className="text-purple-500">Access</span></h2>
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Manage Privileged Users</span>
+        </div>
+        <div className="p-2 bg-slate-900 rounded-xl border border-slate-800">
+          <Users size={16} className="text-purple-500" />
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-auto custom-scrollbar pr-2 mb-6 max-h-[200px]">
+        <div className="flex flex-wrap gap-2">
+          {admins.map(admin => (
+            <div key={admin} className="group relative flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-[10px] font-black lowercase tracking-wider text-slate-400 hover:border-purple-500/50 transition-colors">
+              {admin}
+              <button
+                onClick={() => removeAdmin(admin)}
+                className="opacity-0 group-hover:opacity-100 text-red-500 hover:scale-125 transition-all"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ))}
+          {admins.length === 0 && (
+            <span className="text-slate-600 text-xs italic">No additional admins assigned</span>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-auto flex gap-2">
+        <input
+          value={newAdmin}
+          onChange={(e) => setNewAdmin(e.target.value)}
+          placeholder="New Admin Email..."
+          className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl px-4 py-2 text-xs font-bold outline-none focus:border-purple-500 transition-colors"
+          onKeyDown={(e) => e.key === 'Enter' && addAdmin()}
+        />
+        <button
+          onClick={addAdmin}
+          className="p-3 bg-purple-600 rounded-2xl text-white hover:bg-purple-500 transition-colors shadow-lg shadow-purple-900/40"
+        >
+          <PlusCircle size={20} />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+// --- SUBCOMPONENTS ---
+
+function StatPanel({ icon, label, value, subtext, loading, highlight }: any) {
+  return (
+    <div className={`glass-dark p-8 rounded-[2rem] border-slate-800/50 group transition-all duration-500 hover:-translate-y-1 hover:border-slate-700
+      ${highlight ? 'shadow-[0_0_30px_-10px_rgba(168,85,247,0.2)]' : ''}`}>
+      <div className="flex items-center justify-between mb-4">
+        <div className="p-3 bg-slate-900 rounded-2xl border border-slate-800 group-hover:scale-110 transition-transform duration-500">
+          {icon}
+        </div>
+        <ChevronRight size={16} className="text-slate-700" />
+      </div>
+      <div>
+        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">{label}</h3>
+        {loading ? (
+          <div className="h-8 w-24 bg-slate-900 rounded animate-pulse"></div>
+        ) : (
+          <p className="text-3xl font-black text-slate-100 tracking-tighter">{value}</p>
+        )}
+        <p className="text-[10px] font-bold text-slate-600 mt-2 flex items-center gap-1">
+          <Zap size={10} className="text-purple-500" /> {subtext}
+        </p>
       </div>
     </div>
   );
 }
+
+function ActionButton({ onClick, icon, label, variant }: any) {
+  const styles = {
+    slate: "bg-slate-900 hover:bg-slate-800 text-slate-100 border-slate-800",
+    purple: "bg-purple-600 hover:bg-purple-500 text-white border-purple-500 shadow-lg shadow-purple-950/40"
+  }[variant as 'slate' | 'purple'];
+
+  return (
+    <button
+      onClick={onClick}
+      className={`group flex items-center gap-3 px-8 py-4 rounded-2xl border font-black text-xs uppercase tracking-widest transition-all duration-300 active:scale-95 ${styles}`}
+    >
+      {icon} {label}
+    </button>
+  );
+}
+
 
 // --- SUBCOMPONENT: SIMPLE STAT CARD ---
 function StatCard({ icon, label, value, loading }: any) {

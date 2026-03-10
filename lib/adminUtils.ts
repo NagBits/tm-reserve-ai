@@ -1,16 +1,22 @@
 import { db } from './firebase';
-import { collection, addDoc, Timestamp, getDocs, writeBatch, doc, query, orderBy, limit } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, getDocs, writeBatch, doc, query, orderBy, limit, getDoc } from 'firebase/firestore';
+import { ROLE_GROUPS, ALL_ROLES } from './roles';
 
 // 1. Role Definitions (Matches your Spreadsheet/Grid)
-export const ROLE_GROUPS = {
-  "Core Team": ["SAA", "President", "TMOD", "TTM"],
-  "GE Team": ["General Evaluator", "Timer", "Ah-Counter", "Listener", "Grammarian"],
-  "Prepared Speeches": ["Speaker 1", "Speaker 2", "Speaker 3", "Speaker 4", "Speaker 5", "Speaker 6"],
-  "Evaluators": ["Evaluator 1", "Evaluator 2", "Evaluator 3", "Evaluator 4", "Evaluator 5", "Evaluator 6"]
-};
+// Using central ROLE_GROUPS from ./roles.ts
 
-// Flatten for easy usage
-const STANDARD_ROLES = Object.values(ROLE_GROUPS).flat();
+// HELPER: Fetch dynamic roles from DB
+const getDynamicRoles = async () => {
+  try {
+    const rolesSnap = await getDoc(doc(db, "settings", "roles"));
+    if (rolesSnap.exists()) {
+      return rolesSnap.data().list as string[];
+    }
+  } catch (e) {
+    console.error("Error fetching dynamic roles:", e);
+  }
+  return ALL_ROLES; // Fallback
+};
 
 /**
  * 2. WIPE DB
@@ -40,9 +46,10 @@ export const wipeAllMeetings = async () => {
  */
 export const seedSaturdays = async () => {
   try {
+    const roles = await getDynamicRoles();
     const batch = writeBatch(db);
     let d = new Date();
-    
+
     // Find next Saturday
     const distanceToSaturday = (6 - d.getDay() + 7) % 7;
     d.setDate(d.getDate() + distanceToSaturday);
@@ -52,15 +59,15 @@ export const seedSaturdays = async () => {
       const docId = d.toISOString().split('T')[0]; // ID = 2024-02-10
       const newMeetingRef = doc(db, "meetings", docId);
 
-      const dateStr = d.toLocaleDateString('en-GB', { 
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+      const dateStr = d.toLocaleDateString('en-GB', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
       });
 
       batch.set(newMeetingRef, {
         date: dateStr,
-        timestamp: Timestamp.fromDate(new Date(d)), 
-        isPublished: true, 
-        slots: STANDARD_ROLES.map(role => ({
+        timestamp: Timestamp.fromDate(new Date(d)),
+        isPublished: true,
+        slots: roles.map((role: string) => ({
           role: role,
           userId: null,
           userName: ""
@@ -84,8 +91,9 @@ export const seedSaturdays = async () => {
  */
 export const openNextMonth = async () => {
   try {
+    const roles = await getDynamicRoles();
     const batch = writeBatch(db);
-    
+
     // Find the LAST scheduled meeting
     const meetingsRef = collection(db, "meetings");
     const q = query(meetingsRef, orderBy("timestamp", "desc"), limit(1));
@@ -110,15 +118,15 @@ export const openNextMonth = async () => {
       const docId = startDate.toISOString().split('T')[0];
       const newMeetingRef = doc(db, "meetings", docId);
 
-      const displayDate = startDate.toLocaleDateString('en-GB', { 
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+      const displayDate = startDate.toLocaleDateString('en-GB', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
       });
 
       batch.set(newMeetingRef, {
         date: displayDate,
-        timestamp: Timestamp.fromDate(new Date(startDate)), 
-        isPublished: true, 
-        slots: STANDARD_ROLES.map(role => ({
+        timestamp: Timestamp.fromDate(new Date(startDate)),
+        isPublished: true,
+        slots: roles.map((role: string) => ({
           role: role,
           userId: null,
           userName: ""

@@ -1,37 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, where, Timestamp, doc, updateDoc } from 'firebase/firestore';
-import { Loader2, Save, X, AlertCircle } from 'lucide-react';
+import { collection, query, orderBy, onSnapshot, where, Timestamp, doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
+import {
+  Loader2, Save, X, AlertCircle, Edit3,
+  Search, Filter, ChevronLeft, ChevronRight, PlusCircle,
+  Database, User as UserIcon, Mic, MessageSquare, Award, Clock
+} from 'lucide-react';
 
-// --- CONFIGURATION: Define your Table Columns here ---
-const ROLE_COLUMNS = [
-  "Toastmaster of the Day",
-  "Table Topics Master",
-  "General Evaluator",
-  "Speaker 1",
-  "Speaker 2",
-  "Speaker 3",
-  "Speaker 4",
-  "Speaker 5",
-  "Speaker 6",
-  "Evaluator 1",
-  "Evaluator 2",
-  "Evaluator 3",
-  "Evaluator 4",
-  "Evaluator 5",
-  "Evaluator 6",
-  "Timer",
-  "Ah-Counter",
-  "Grammarian",
-  "Listner"
-];
+import { ROLE_CATEGORIES, CATEGORY_STYLES, ALL_ROLES as FALLBACK_ROLES } from '@/lib/roles';
 
 interface Slot {
   id: string;
   role: string;
-  userId?: string;
+  userId?: string | null;
   userName?: string;
 }
 
@@ -41,193 +24,295 @@ interface Meeting {
   slots: Slot[];
 }
 
+// Using FALLBACK_ROLES from centralized roles
+
 export default function VPEGrid() {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  // Track which specific cell is being edited: { meetingId: "...", role: "..." }
+  const [roleColumns, setRoleColumns] = useState<string[]>([]);
+  const [loadingRoles, setLoadingRoles] = useState(true);
+  const [loadingMeetings, setLoadingMeetings] = useState(true);
   const [editingCell, setEditingCell] = useState<{ mId: string, role: string } | null>(null);
   const [tempName, setTempName] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // --- 1. FETCH DATA ---
+  const loading = loadingRoles || loadingMeetings;
+
   useEffect(() => {
+    // 1. Fetch Dynamic Roles
+    const rolesUnsubscribe = onSnapshot(doc(db, "settings", "roles"), (docSnap) => {
+      if (docSnap.exists()) {
+        const list = (docSnap.data().list || []) as string[];
+        const uniqueList = list.filter((r, i) => list.indexOf(r) === i);
+        setRoleColumns(uniqueList.length > 0 ? uniqueList : FALLBACK_ROLES);
+      } else {
+        setRoleColumns(FALLBACK_ROLES);
+        // Initialize if not exists
+        setDoc(doc(db, "settings", "roles"), { list: FALLBACK_ROLES });
+      }
+      setLoadingRoles(false);
+    }, (error) => {
+      console.error("Roles fetch error:", error);
+      setRoleColumns(FALLBACK_ROLES);
+      setLoadingRoles(false);
+    });
+
+    // 2. Fetch Meetings
     const now = new Date();
     now.setHours(0, 0, 0, 0);
 
     const q = query(
       collection(db, "meetings"),
-      where("timestamp", ">=", Timestamp.fromDate(now)),
+      // where("timestamp", ">=", Timestamp.fromDate(now)),
       orderBy("timestamp", "asc")
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const meetingsUnsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Meeting[];
       setMeetings(data);
-      setLoading(false);
+      setLoadingMeetings(false);
+    }, (error) => {
+      console.error("Meetings fetch error:", error);
+      setLoadingMeetings(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      rolesUnsubscribe();
+      meetingsUnsubscribe();
+    };
   }, []);
 
-  // --- 2. HANDLE SAVE (Cell Update) ---
+  const filteredMeetings = useMemo(() => {
+    if (!searchQuery) return meetings;
+    const query = searchQuery.toLowerCase();
+    return meetings.filter(m =>
+      m.timestamp.toDate().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }).toLowerCase().includes(query) ||
+      m.slots.some(s => s.userName?.toLowerCase().includes(query))
+    );
+  }, [meetings, searchQuery]);
+
+  const filteredRoles = useMemo(() => {
+    if (!searchQuery) return roleColumns;
+    const query = searchQuery.toLowerCase();
+
+    // Check if it's likely a date query - in that case, we show all roles
+    const monthNames = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+    const isDateQuery = /\d/.test(query) || monthNames.some(m => query.includes(m));
+    if (isDateQuery) return roleColumns;
+
+    return roleColumns.filter(role =>
+      role.toLowerCase().includes(query) ||
+      ROLE_CATEGORIES[role]?.toLowerCase().includes(query) ||
+      meetings.some(m => m.slots?.some(s => s.role === role && s.userName?.toLowerCase().includes(query)))
+    );
+  }, [roleColumns, searchQuery, meetings]);
+
   const handleSave = async (meeting: Meeting, roleName: string) => {
     try {
       const meetingRef = doc(db, "meetings", meeting.id);
-      let updatedSlots = [...meeting.slots];
-      
-      // Check if slot exists for this role
-      const existingSlotIndex = updatedSlots.findIndex(s => s.role === roleName);
+      let updatedSlots = [...(meeting.slots || [])];
+      const index = updatedSlots.findIndex(s => s.role.trim().toLowerCase() === roleName.trim().toLowerCase());
 
-      if (existingSlotIndex >= 0) {
-        // UPDATE EXISTING SLOT
-        if (tempName.trim() === "") {
-           // If empty, remove the user but keep the slot open
-           updatedSlots[existingSlotIndex] = {
-             ...updatedSlots[existingSlotIndex],
-             userName: undefined,
-             userId: undefined
-           };
-        } else {
-           // Update name
-           updatedSlots[existingSlotIndex] = {
-             ...updatedSlots[existingSlotIndex],
-             userName: tempName,
-             userId: 'manual-entry' // Flag as manually entered by VPE
-           };
-        }
-      } else {
-        // CREATE NEW SLOT (if it didn't exist in the meeting yet)
-        if (tempName.trim() !== "") {
-          updatedSlots.push({
-            id: Math.random().toString(36).substr(2, 9),
-            role: roleName,
-            userName: tempName,
-            userId: 'manual-entry'
-          });
-        }
+      const slotUpdate = tempName.trim() === ""
+        ? { userId: null, userName: "" }
+        : { userId: 'manual-entry', userName: tempName };
+
+      if (index >= 0) {
+        updatedSlots[index] = { ...updatedSlots[index], ...slotUpdate };
+      } else if (tempName.trim() !== "") {
+        updatedSlots.push({
+          id: Math.random().toString(36).substr(2, 9),
+          role: roleName,
+          ...slotUpdate
+        });
       }
 
       await updateDoc(meetingRef, { slots: updatedSlots });
       setEditingCell(null);
     } catch (error) {
       console.error("Error updating cell:", error);
-      alert("Failed to save. Check console.");
     }
   };
 
-  // --- 3. HELPER: Find user in a specific role for a specific meeting ---
-  const getSlotData = (meeting: Meeting, roleName: string) => {
-    return meeting.slots.find(s => s.role === roleName);
-  };
-
   if (loading) return (
-    <div className="flex justify-center py-20">
-      <Loader2 className="animate-spin text-purple-600" size={32}/>
+    <div className="flex flex-col items-center justify-center py-32 gap-4">
+      <Loader2 className="animate-spin text-purple-500" size={48} />
+      <span className="text-slate-500 font-black text-[10px] uppercase tracking-[0.3em]">Syncing Ledger...</span>
     </div>
   );
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col max-h-[80vh]">
-      
-      {/* TOOLBAR / LEGEND */}
-      <div className="p-4 border-b border-slate-200 bg-slate-50 text-xs text-slate-500 flex items-center gap-4">
-        <div className="flex items-center gap-2">
-           <span className="w-3 h-3 bg-purple-100 border border-purple-200 rounded"></span> Filled
+    <div className="flex flex-col h-[75vh]">
+
+      {/* GRID TOOLBAR */}
+      <div className="p-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between gap-4 rounded-t-[2.5rem]">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Ledger Online</span>
+          </div>
+          <div className="h-4 w-px bg-slate-800 hidden sm:block"></div>
+          <div className="hidden lg:flex items-center gap-4">
+            {Object.keys(CATEGORY_STYLES).map(cat => (
+              <div key={cat} className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${cat === 'Core' ? 'bg-purple-500' : cat === 'Prepared' ? 'bg-blue-500' : cat === 'Evaluation' ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{cat}</span>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-           <span className="w-3 h-3 bg-white border border-slate-200 rounded"></span> Open
-        </div>
-        <div className="ml-auto flex items-center gap-2 text-slate-400">
-           <AlertCircle size={14}/> Click any cell to assign a member
+
+        <div className="flex items-center gap-2 bg-slate-950 px-4 py-2 rounded-2xl border border-slate-800">
+          <Search size={14} className="text-slate-500" />
+          <input
+            placeholder="Filter by date, member or role..."
+            className="bg-transparent text-xs font-bold text-slate-300 outline-none w-56 placeholder:text-slate-700"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
       </div>
 
-      {/* --- EXCEL TABLE CONTAINER --- */}
-      <div className="overflow-auto flex-1 relative">
-        <table className="w-full border-collapse text-sm text-left">
-          
-          {/* TABLE HEADER (Sticky) */}
-          <thead className="text-xs text-slate-500 bg-slate-100 uppercase sticky top-0 z-20 shadow-sm font-bold">
-            <tr>
-              <th className="p-3 border-b border-r border-slate-200 sticky left-0 z-30 bg-slate-100 min-w-[120px]">
-                Date
+      {/* SPREADSHEET ENGINE */}
+      <div className="overflow-auto flex-1 custom-scrollbar bg-slate-950 border-x border-slate-800 text-slate-300">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="sticky top-0 z-30">
+              <th className="bg-slate-900 p-5 text-left border-b border-r border-slate-800 sticky left-0 z-40 min-w-[180px]">
+                <div className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                  <UserIcon size={12} /> Roles
+                </div>
               </th>
-              {ROLE_COLUMNS.map((role) => (
-                <th key={role} className="p-3 border-b border-slate-200 min-w-[160px] whitespace-nowrap">
-                  {role}
+              {filteredMeetings.map((meeting) => (
+                <th key={meeting.id} className="bg-slate-900 p-5 text-left border-b border-slate-800 min-w-[160px] whitespace-nowrap">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-base font-black text-slate-100 tracking-tighter">
+                      {meeting.timestamp.toDate().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+                      {meeting.timestamp.toDate().toLocaleDateString('en-GB', { weekday: 'long' })}
+                    </span>
+                  </div>
                 </th>
               ))}
             </tr>
           </thead>
-
-          {/* TABLE BODY */}
-          <tbody className="divide-y divide-slate-100">
-            {meetings.map((meeting) => (
-              <tr key={meeting.id} className="hover:bg-slate-50 transition-colors">
-                
-                {/* DATE COLUMN (Sticky Left) */}
-                <td className="p-3 border-r border-slate-200 bg-white sticky left-0 z-10 font-medium text-slate-900 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
-                  {meeting.timestamp.toDate().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                  <span className="text-slate-400 text-xs font-normal ml-1">
-                    ({meeting.timestamp.toDate().toLocaleDateString('en-GB', { weekday: 'short' })})
-                  </span>
+          <tbody className="divide-y divide-slate-900/50">
+            {filteredMeetings.length === 0 ? (
+              <tr>
+                <td colSpan={filteredMeetings.length + 1} className="py-24 text-center">
+                  <div className="flex flex-col items-center gap-4 opacity-40">
+                    <div className="w-20 h-20 bg-slate-900 rounded-[2rem] flex items-center justify-center border border-slate-800">
+                      <Database size={32} className="text-slate-500" strokeWidth={1.5} />
+                    </div>
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-slate-100 font-black italic tracking-tighter uppercase text-sm">Empty Ledger</span>
+                      <span className="text-slate-600 font-bold text-[10px] uppercase tracking-[0.2em]">No Synchronized Records Found</span>
+                    </div>
+                  </div>
                 </td>
-
-                {/* ROLE COLUMNS */}
-                {ROLE_COLUMNS.map((role) => {
-                  const slot = getSlotData(meeting, role);
-                  const isEditing = editingCell?.mId === meeting.id && editingCell?.role === role;
-                  const hasUser = !!slot?.userName;
-
-                  return (
-                    <td 
-                      key={role} 
-                      className={`p-1 border-r border-slate-100 relative h-12 align-middle ${isEditing ? 'bg-white z-20 ring-2 ring-purple-500 ring-inset' : ''}`}
-                    >
-                      {isEditing ? (
-                        // --- EDIT MODE ---
-                        <div className="flex items-center h-full w-full px-1">
-                          <input 
-                            autoFocus
-                            className="w-full h-8 text-xs px-2 bg-slate-50 border border-purple-200 rounded focus:outline-none"
-                            value={tempName}
-                            onChange={(e) => setTempName(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleSave(meeting, role);
-                              if (e.key === 'Escape') setEditingCell(null);
-                            }}
-                            placeholder="Enter Name..."
-                          />
-                          <button onClick={() => handleSave(meeting, role)} className="ml-1 text-green-600 hover:bg-green-100 p-1 rounded"><Save size={14}/></button>
-                          <button onClick={() => setEditingCell(null)} className="ml-1 text-slate-400 hover:bg-slate-100 p-1 rounded"><X size={14}/></button>
-                        </div>
-                      ) : (
-                        // --- VIEW MODE ---
-                        <div 
-                          onClick={() => {
-                            setEditingCell({ mId: meeting.id, role });
-                            setTempName(slot?.userName || "");
-                          }}
-                          className={`w-full h-full flex items-center px-3 cursor-pointer text-xs transition-all
-                            ${hasUser 
-                              ? 'bg-purple-50 text-purple-900 font-medium hover:bg-purple-100' 
-                              : 'text-slate-300 hover:text-slate-500 hover:bg-slate-100'
-                            }`}
-                        >
-                          {slot?.userName || <span className="text-[10px] uppercase tracking-widest opacity-50">Empty</span>}
-                        </div>
-                      )}
-                    </td>
-                  );
-                })}
               </tr>
-            ))}
+            ) : (
+              filteredRoles.map((role) => (
+                <tr key={role} className="group hover:bg-white/5 transition-all duration-300">
+                  <td className={`p-5 border-r border-slate-800 bg-slate-950 sticky left-0 z-10 transition-colors group-hover:bg-slate-900 ${CATEGORY_STYLES[ROLE_CATEGORIES[role] || "Other"] || ""}`}>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[9px] font-black text-purple-500 uppercase tracking-widest opacity-60">
+                        {ROLE_CATEGORIES[role] || "Other"}
+                      </span>
+                      <span className="text-xs font-black text-slate-300 uppercase italic tracking-tighter">
+                        {role}
+                      </span>
+                    </div>
+                  </td>
+
+                  {filteredMeetings.map((meeting) => {
+                    const slot = meeting.slots?.find(s => s.role.trim().toLowerCase() === role.trim().toLowerCase());
+                    const isEditing = editingCell?.mId === meeting.id && editingCell?.role === role;
+                    const hasUser = !!slot?.userName;
+                    const category = ROLE_CATEGORIES[role] || "Other";
+
+                    return (
+                      <td
+                        key={meeting.id}
+                        className={`p-2 transition-all duration-300 border-r border-slate-900/50 group/cell relative
+                        ${isEditing ? 'bg-slate-900 ring-2 ring-purple-600 ring-inset z-20 shadow-2xl scale-105 rounded-xl' : ''}`}
+                      >
+                        {isEditing ? (
+                          <div className="flex items-center gap-2 animate-in fade-in zoom-in duration-200">
+                            <input
+                              autoFocus
+                              className="bg-slate-950 border border-slate-800 text-xs font-bold text-white px-3 py-2.5 rounded-xl outline-none focus:border-purple-500 w-full"
+                              value={tempName}
+                              onChange={(e) => setTempName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSave(meeting, role);
+                                if (e.key === 'Escape') setEditingCell(null);
+                              }}
+                            />
+                            <button onClick={() => handleSave(meeting, role)} className="p-2 bg-purple-600 text-white rounded-xl hover:bg-purple-500 shadow-lg shadow-purple-900/20"><Save size={14} /></button>
+                          </div>
+                        ) : (
+                          <div
+                            onClick={() => {
+                              setEditingCell({ mId: meeting.id, role });
+                              setTempName(slot?.userName || "");
+                            }}
+                            className={`h-12 w-full flex items-center px-4 rounded-xl cursor-pointer transition-all duration-300 overflow-hidden group/cell-container
+                            ${CATEGORY_STYLES[category] || ""}
+                            ${hasUser
+                                ? 'bg-purple-500/10 text-purple-400 font-black hover:bg-purple-500/20 border border-purple-500/20 shadow-inner'
+                                : 'bg-slate-900/40 border border-slate-800/50 text-slate-700 hover:text-slate-400 hover:border-slate-700 hover:bg-slate-800/60'
+                              }`}
+                          >
+                            <div className="flex items-center gap-3 w-full truncate italic tracking-tight">
+                              {hasUser ? (
+                                <>
+                                  <div className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(168,85,247,0.8)]"></div>
+                                  <span className="truncate">{slot?.userName}</span>
+                                </>
+                              ) : (
+                                <div className="flex items-center gap-2 text-slate-500/50 group-hover/cell-container:text-purple-400 transition-colors">
+                                  <PlusCircle size={12} className="group-hover/cell-container:rotate-90 transition-transform duration-500" />
+                                  <span className="text-[9px] font-black uppercase tracking-widest">Assign Member</span>
+                                </div>
+                              )}
+                            </div>
+                            <Edit3 size={12} className="opacity-0 group-hover/cell:opacity-100 transition-opacity ml-auto text-purple-500 shrink-0" />
+                          </div>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
+      </div>
+
+      {/* GRID FOOTER */}
+      <div className="p-4 bg-slate-900 border-t border-slate-800 text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center justify-between rounded-b-[2.5rem]">
+        <div className="flex items-center gap-4">
+          <span>Records: {filteredMeetings.length}</span>
+          <div className="h-3 w-px bg-slate-800"></div>
+          <span>Active: {meetings.filter(m => m.timestamp.toDate() >= new Date()).length}</span>
+        </div>
+        <div className="flex items-center gap-8">
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-3 rounded-full bg-purple-600"></div> Core Team
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-3 rounded-full bg-blue-600"></div> Speeches
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-3 rounded-full bg-emerald-600"></div> Evaluations
+          </div>
+        </div>
       </div>
     </div>
   );
 }
+

@@ -32,16 +32,27 @@ const meetingDates = ["2026-01-25", "2026-02-01", "2026-02-08", "2026-02-15"];
 
 // 2. Define the template of roles for a standard meeting
 const roleTemplate = [
-  { roleName: "Toastmaster of the Day", order: 1 },
-  { roleName: "General Evaluator", order: 2 },
-  { roleName: "Timer", order: 3 },
-  { roleName: "Ah-Counter", order: 4 },
-  { roleName: "Grammarian", order: 5 },
-  { roleName: "Table Topics Master", order: 6 },
-  { roleName: "Speaker 1", order: 7 },
-  { roleName: "Speaker 2", order: 8 },
-  { roleName: "Evaluator 1", order: 9 },
-  { roleName: "Evaluator 2", order: 10 },
+  { roleName: "SAA", order: 1 },
+  { roleName: "President", order: 2 },
+  { roleName: "TMOD", order: 3 },
+  { roleName: "TTM", order: 4 },
+  { roleName: "General Evaluator", order: 5 },
+  { roleName: "Timer", order: 6 },
+  { roleName: "Ah-Counter", order: 7 },
+  { roleName: "Grammarian", order: 8 },
+  { roleName: "Listener", order: 9 },
+  { roleName: "Speaker 1", order: 10 },
+  { roleName: "Speaker 2", order: 11 },
+  { roleName: "Speaker 3", order: 12 },
+  { roleName: "Speaker 4", order: 13 },
+  { roleName: "Speaker 5", order: 14 },
+  { roleName: "Speaker 6", order: 15 },
+  { roleName: "Evaluator 1", order: 16 },
+  { roleName: "Evaluator 2", order: 17 },
+  { roleName: "Evaluator 3", order: 18 },
+  { roleName: "Evaluator 4", order: 19 },
+  { roleName: "Evaluator 5", order: 20 },
+  { roleName: "Evaluator 6", order: 21 },
 ];
 
 async function seedDatabase() {
@@ -57,7 +68,7 @@ async function seedDatabase() {
 
   for (const date of meetingDates) {
     console.log(`📅 Seeding roles for ${date}...`);
-    
+
     for (const role of roleTemplate) {
       await slotsRef.add({
         ...role,
