@@ -32,7 +32,7 @@ const ROLE_ICONS: Record<string, any> = {
     "DEFAULT": UserIcon
 };
 
-export default function MemberGrid() {
+export default function MemberGrid({ selectedDate }: { selectedDate?: Date }) {
     const { user } = useAuth();
     const [meetings, setMeetings] = useState<Meeting[]>([]);
     const [roleColumns, setRoleColumns] = useState<string[]>(FALLBACK_ROLES);
@@ -76,7 +76,23 @@ export default function MemberGrid() {
         };
     }, []);
 
+    // Auto-scroll to selected meeting
+    useEffect(() => {
+        if (selectedDate && meetings.length > 0) {
+            const el = document.getElementById("selected-meeting-column");
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }
+        }
+    }, [selectedDate, meetings]);
+
     const handleBook = async (meetingId: string, roleName: string, currentSlots: Slot[]) => {
+        const meeting = meetings.find(m => m.id === meetingId);
+        if (meeting && meeting.timestamp.toDate() < new Date()) {
+            alert("This meeting has already passed.");
+            return;
+        }
+
         if (!user) {
             alert("Please sign in to book a role.");
             return;
@@ -179,18 +195,25 @@ export default function MemberGrid() {
                                         Member Roles
                                     </div>
                                 </th>
-                                {meetings.map((meeting) => (
-                                    <th key={meeting.id} className="p-5 text-left border-b border-slate-100 min-w-[150px] whitespace-nowrap bg-slate-50">
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-black text-slate-800 tracking-tighter">
-                                                {meeting.timestamp.toDate().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                                            </span>
-                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em]">
-                                                {meeting.timestamp.toDate().toLocaleDateString('en-GB', { weekday: 'short' })}
-                                            </span>
-                                        </div>
-                                    </th>
-                                ))}
+                                {meetings.map((meeting) => {
+                                    const isSelected = selectedDate && meeting.timestamp.toDate().toDateString() === selectedDate.toDateString();
+                                    return (
+                                        <th
+                                            key={meeting.id}
+                                            className={`p-5 text-left border-b border-slate-100 min-w-[150px] whitespace-nowrap transition-colors duration-500 ${isSelected ? 'bg-purple-100/50' : 'bg-slate-50'}`}
+                                            id={isSelected ? "selected-meeting-column" : undefined}
+                                        >
+                                            <div className="flex flex-col">
+                                                <span className={`text-sm font-black tracking-tighter ${isSelected ? 'text-purple-700' : 'text-slate-800'}`}>
+                                                    {meeting.timestamp.toDate().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                                                </span>
+                                                <span className={`text-[9px] font-bold uppercase tracking-[0.2em] ${isSelected ? 'text-purple-400' : 'text-slate-400'}`}>
+                                                    {meeting.timestamp.toDate().toLocaleDateString('en-GB', { weekday: 'short' })}
+                                                </span>
+                                            </div>
+                                        </th>
+                                    );
+                                })}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
@@ -217,22 +240,30 @@ export default function MemberGrid() {
                                         </td>
 
                                         {meetings.map((meeting) => {
+                                            const mDate = meeting.timestamp.toDate();
+                                            const isPast = mDate < new Date();
+                                            const isSelected = selectedDate && mDate.toDateString() === selectedDate.toDateString();
                                             const slot = meeting.slots?.find(s => s.role.trim().toLowerCase() === role.trim().toLowerCase());
                                             const isTaken = !!slot?.userName;
                                             const isMySlot = user && slot?.userId === user.uid;
                                             const isLoading = bookingRole?.mId === meeting.id && bookingRole?.role === role;
 
                                             return (
-                                                <td key={meeting.id} className="p-2 border-r border-slate-50 last:border-r-0">
+                                                <td
+                                                    key={meeting.id}
+                                                    className={`p-2 border-r border-slate-50 last:border-r-0 transition-colors duration-500 ${isSelected ? 'bg-purple-50/30' : ''}`}
+                                                >
                                                     <button
                                                         onClick={() => handleBook(meeting.id, role, meeting.slots)}
-                                                        disabled={isTaken && !isMySlot}
+                                                        disabled={(isTaken && !isMySlot) || isPast}
                                                         className={`w-full h-11 flex items-center px-3 rounded-xl transition-all duration-300 relative group/btn
                             ${isMySlot
                                                                 ? 'bg-purple-600 text-white shadow-lg shadow-purple-200 ring-2 ring-purple-600 ring-offset-1'
-                                                                : isTaken
-                                                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200 opacity-60'
-                                                                    : 'bg-white border-2 border-slate-100 text-slate-400 hover:border-purple-200 hover:bg-purple-50 hover:text-purple-600 active:scale-95'
+                                                                : isPast
+                                                                    ? 'bg-slate-50 text-slate-300 cursor-not-allowed border border-slate-100 opacity-50'
+                                                                    : isTaken
+                                                                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200 opacity-60'
+                                                                        : 'bg-white border-2 border-slate-100 text-slate-400 hover:border-purple-200 hover:bg-purple-50 hover:text-purple-600 active:scale-95'
                                                             }
                           `}
                                                     >
@@ -242,6 +273,10 @@ export default function MemberGrid() {
                                                             <div className="flex items-center gap-2 w-full truncate">
                                                                 <CheckCircle2 size={14} className="shrink-0" />
                                                                 <span className="text-[10px] font-black truncate uppercase tracking-tighter">Your Role</span>
+                                                            </div>
+                                                        ) : isPast ? (
+                                                            <div className="flex items-center gap-2 w-full truncate grayscale justify-center">
+                                                                <span className="text-[9px] font-bold truncate tracking-widest uppercase opacity-50">Locked</span>
                                                             </div>
                                                         ) : isTaken ? (
                                                             <div className="flex items-center gap-2 w-full truncate grayscale">

@@ -39,6 +39,11 @@ export default function MeetingCard({ meeting }: { meeting: Meeting }) {
 
   // --- HANDLE BOOKING ---
   const handleBook = async (roleName: string) => {
+    if (isPast) {
+      alert("You cannot book roles for past meetings.");
+      return;
+    }
+
     if (!user) {
       alert("Please sign in to book a role.");
       return;

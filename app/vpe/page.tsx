@@ -221,7 +221,7 @@ export default function VPEPage() {
         </div>
       </nav>
 
-      <main className="max-w-[1600px] mx-auto p-6 lg:p-10 space-y-10">
+      <main className="max-w-[1600px] mx-auto p-4 md:p-6 lg:p-10 space-y-8 md:space-y-10">
 
         {/* --- DYNAMIC ALERT OVERLAY --- */}
         {status.msg && (
@@ -240,7 +240,7 @@ export default function VPEPage() {
         )}
 
         {/* --- COMMAND CENTER STATS --- */}
-        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
           <StatPanel
             icon={<CalendarDays className="text-blue-400" />}
             label="Active Cycle"
@@ -263,7 +263,7 @@ export default function VPEPage() {
             subtext="Countdown initiated"
             loading={loadingStats}
           />
-          <div className="glass-dark p-6 rounded-[2rem] border-slate-800/50 flex flex-col justify-between group hover:border-purple-500/50 transition-all duration-500">
+          <div className="glass-dark p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border-slate-800/50 flex flex-col justify-between group hover:border-purple-500/50 transition-all duration-500">
             <div className="flex justify-between items-start">
               <div className="p-3 bg-slate-900 rounded-2xl border border-slate-800 group-hover:bg-purple-500/10 transition-colors">
                 <Settings className="text-slate-400 group-hover:text-purple-400" size={24} />
@@ -272,7 +272,7 @@ export default function VPEPage() {
             </div>
             <div className="mt-4">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">VPE Meta</h3>
-              <p className="text-lg font-black">{user.displayName?.split(' ')[0] || 'Admin'}</p>
+              <p className="text-base md:text-lg font-black">{user.displayName?.split(' ')[0] || 'Admin'}</p>
               <div className="w-full bg-slate-900 h-1 mt-3 rounded-full overflow-hidden">
                 <div className="bg-purple-600 h-full w-[70%]" />
               </div>
@@ -283,34 +283,33 @@ export default function VPEPage() {
         {/* --- QUICK ACTION COMMANDS --- */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
 
-          <section className="glass-dark p-8 rounded-[2.5rem] border-slate-800/50 relative overflow-hidden lg:col-span-2">
+          <section className="glass-dark p-6 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] border-slate-800/50 relative overflow-hidden lg:col-span-2">
             <div className="absolute top-0 right-0 p-8 opacity-5">
               <Settings size={200} className="animate-[spin_20s_linear_infinite]" />
             </div>
 
-            <div className="relative z-10 flex flex-col gap-8 h-full justify-center">
+            <div className="relative z-10 flex flex-col gap-6 md:gap-8 h-full justify-center">
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-3">
-                  <h2 className="text-2xl font-black uppercase tracking-tighter italic">Deployment <span className="text-purple-500">Hub</span></h2>
-                  <div className="h-px w-20 bg-slate-800"></div>
+                  <h2 className="text-xl md:text-2xl font-black uppercase tracking-tighter italic">Deployment <span className="text-purple-500">Hub</span></h2>
+                  <div className="h-px w-10 md:w-20 bg-slate-800"></div>
                 </div>
-                <p className="text-slate-500 text-sm max-w-md font-medium">Execute administrative routines to initialize or extend the club's meeting schedule.</p>
+                <p className="text-slate-400 md:text-slate-500 text-xs md:text-sm max-w-md font-medium">Execute administrative routines to initialize or extend the club's meeting schedule.</p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-4">
+              <div className="flex flex-wrap items-center gap-3 md:gap-4">
                 <ActionButton
                   onClick={() => runTask(seedSaturdays, "Current cycle initialized")}
-                  icon={<PlusCircle size={20} />}
+                  icon={<PlusCircle size={18} className="md:w-5 md:h-5" />}
                   label="Start New Term"
                   variant="slate"
                 />
                 <ActionButton
                   onClick={() => runTask(openNextMonth, "Schedule extended successfully")}
-                  icon={<Check size={20} />}
+                  icon={<Check size={18} className="md:w-5 md:h-5" />}
                   label="Add More Meetings"
                   variant="purple"
                 />
-                <div className="w-px h-12 bg-slate-800 mx-2 hidden lg:block" />
               </div>
             </div>
           </section>
@@ -325,14 +324,14 @@ export default function VPEPage() {
 
         {/* --- INFORMATION GRID --- */}
         <section className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-900/40">
-                <Activity className="text-white" size={24} />
+              <div className="w-10 h-10 md:w-12 md:h-12 bg-purple-600 rounded-xl md:rounded-2xl flex items-center justify-center shadow-lg shadow-purple-900/40">
+                <Activity className="text-white" size={20} />
               </div>
               <div>
-                <h2 className="text-3xl font-black italic tracking-tighter uppercase">Master <span className="text-slate-500">Grid</span></h2>
-                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Live Role Management System</p>
+                <h2 className="text-2xl md:text-3xl font-black italic tracking-tighter uppercase">Master <span className="text-slate-500">Grid</span></h2>
+                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Live Role Management System</p>
               </div>
             </div>
             <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-slate-900 rounded-full border border-slate-800">

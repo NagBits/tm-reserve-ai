@@ -147,28 +147,28 @@ export default function VPEGrid() {
     <div className="flex flex-col h-[75vh]">
 
       {/* GRID TOOLBAR */}
-      <div className="p-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between gap-4 rounded-t-[2.5rem]">
-        <div className="flex items-center gap-6">
+      <div className="p-3 md:p-4 bg-slate-900 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-t-[1.5rem] md:rounded-t-[2.5rem]">
+        <div className="flex flex-wrap items-center gap-4 md:gap-6">
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Ledger Online</span>
+            <span className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Ledger Online</span>
           </div>
           <div className="h-4 w-px bg-slate-800 hidden sm:block"></div>
-          <div className="hidden lg:flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3 md:gap-4">
             {Object.keys(CATEGORY_STYLES).map(cat => (
               <div key={cat} className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full ${cat === 'Core' ? 'bg-purple-500' : cat === 'Prepared' ? 'bg-blue-500' : cat === 'Evaluation' ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
-                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{cat}</span>
+                <span className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${cat === 'Core' ? 'bg-purple-500' : cat === 'Prepared' ? 'bg-blue-500' : cat === 'Evaluation' ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                <span className="text-[8px] md:text-[9px] font-black text-slate-500 uppercase tracking-widest">{cat}</span>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="flex items-center gap-2 bg-slate-950 px-4 py-2 rounded-2xl border border-slate-800">
-          <Search size={14} className="text-slate-500" />
+        <div className="flex items-center gap-2 bg-slate-950 px-3 md:px-4 py-2 rounded-xl md:rounded-2xl border border-slate-800 w-full md:w-auto">
+          <Search size={14} className="text-slate-500 shrink-0" />
           <input
-            placeholder="Filter by date, member or role..."
-            className="bg-transparent text-xs font-bold text-slate-300 outline-none w-56 placeholder:text-slate-700"
+            placeholder="Filter grid..."
+            className="bg-transparent text-xs font-bold text-slate-300 outline-none w-full md:w-56 placeholder:text-slate-700"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -294,13 +294,13 @@ export default function VPEGrid() {
       </div>
 
       {/* GRID FOOTER */}
-      <div className="p-4 bg-slate-900 border-t border-slate-800 text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center justify-between rounded-b-[2.5rem]">
+      <div className="p-3 md:p-4 bg-slate-900 border-t border-slate-800 text-[8px] md:text-[10px] font-black text-slate-500 uppercase tracking-widest flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-b-[1.5rem] md:rounded-b-[2.5rem]">
         <div className="flex items-center gap-4">
           <span>Records: {filteredMeetings.length}</span>
           <div className="h-3 w-px bg-slate-800"></div>
           <span>Active: {meetings.filter(m => m.timestamp.toDate() >= new Date()).length}</span>
         </div>
-        <div className="flex items-center gap-8">
+        <div className="flex flex-wrap items-center gap-3 md:gap-8">
           <div className="flex items-center gap-2">
             <div className="w-1 h-3 rounded-full bg-purple-600"></div> Core Team
           </div>

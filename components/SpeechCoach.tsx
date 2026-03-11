@@ -98,18 +98,18 @@ export default function SpeechCoach() {
     };
 
     return (
-        <div className="bg-white rounded-[2.5rem] p-10 shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col h-full relative overflow-hidden group">
+        <div className="bg-white rounded-[1.5rem] md:rounded-[2.5rem] p-6 md:p-10 shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col h-full relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-10 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity pointer-events-none">
                 <Brain size={180} />
             </div>
 
             <div className="relative z-10 flex flex-col h-full">
-                <div className="flex items-center gap-4 mb-8">
-                    <div className="w-14 h-14 bg-purple-600 rounded-[1.25rem] flex items-center justify-center text-white shadow-lg shadow-purple-200">
-                        <Mic size={28} />
+                <div className="flex items-center gap-3 md:gap-4 mb-6 md:mb-8">
+                    <div className="w-12 h-12 md:w-14 md:h-14 bg-purple-600 rounded-[1rem] md:rounded-[1.25rem] flex items-center justify-center text-white shadow-lg shadow-purple-200">
+                        <Mic size={24} className="md:w-7 md:h-7" />
                     </div>
                     <div>
-                        <h3 className="text-2xl font-black text-slate-900 tracking-tight">AI Speech Lab</h3>
+                        <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">AI Speech Lab</h3>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Instant Voice Analysis</p>
                     </div>
                 </div>

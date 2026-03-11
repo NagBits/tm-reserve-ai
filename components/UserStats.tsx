@@ -17,7 +17,7 @@ export default function UserStats({ onStatsCalculated }: { onStatsCalculated?: (
       // 1. Fetch all meetings (In a real app, you might query a 'history' subcollection)
       const q = query(collection(db, "meetings"));
       const snapshot = await getDocs(q);
-      
+
       const counts: Record<string, number> = {};
       let total = 0;
 
@@ -35,7 +35,7 @@ export default function UserStats({ onStatsCalculated }: { onStatsCalculated?: (
 
       setRoleCounts(counts);
       setTotalRoles(total);
-      
+
       // Pass data up to parent for the AI Coach to use
       if (onStatsCalculated) onStatsCalculated(counts);
     };
@@ -47,10 +47,10 @@ export default function UserStats({ onStatsCalculated }: { onStatsCalculated?: (
   const sortedRoles = Object.entries(roleCounts).sort(([, a], [, b]) => b - a);
 
   return (
-    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-full">
+    <div className="bg-white p-5 md:p-6 rounded-[1.5rem] md:rounded-2xl border border-slate-200 shadow-sm h-full">
       <div className="flex items-center justify-between mb-6">
         <h3 className="font-bold text-slate-800 flex items-center gap-2">
-          <BarChart3 className="text-purple-600" size={20}/> Role History
+          <BarChart3 className="text-purple-600" size={20} /> Role History
         </h3>
         <span className="text-xs font-bold bg-slate-100 text-slate-600 px-2 py-1 rounded-full">
           {totalRoles} Completed
@@ -66,8 +66,8 @@ export default function UserStats({ onStatsCalculated }: { onStatsCalculated?: (
                 <span>{count}</span>
               </div>
               <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                <div 
-                  className="bg-purple-600 h-2 rounded-full transition-all duration-500 group-hover:bg-purple-500" 
+                <div
+                  className="bg-purple-600 h-2 rounded-full transition-all duration-500 group-hover:bg-purple-500"
                   style={{ width: `${Math.min((count / 5) * 100, 100)}%` }} // Scale: 5 roles = 100% bar
                 ></div>
               </div>
@@ -75,7 +75,7 @@ export default function UserStats({ onStatsCalculated }: { onStatsCalculated?: (
           ))
         ) : (
           <div className="text-center py-8 text-slate-400">
-            <Medal className="mx-auto mb-2 opacity-50" size={32}/>
+            <Medal className="mx-auto mb-2 opacity-50" size={32} />
             <p className="text-sm">No roles taken yet.</p>
           </div>
         )}
