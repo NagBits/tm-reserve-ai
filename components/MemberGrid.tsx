@@ -9,7 +9,7 @@ import {
     Calendar, Users, ShieldCheck, Award, Mic, MessageSquare,
     ChevronLeft, ChevronRight, Info
 } from 'lucide-react';
-import { ROLE_CATEGORIES, ROLE_THEMES, CATEGORY_STYLES, ALL_ROLES as FALLBACK_ROLES } from '@/lib/roles';
+import { ROLE_CATEGORIES, ROLE_THEMES, CATEGORY_STYLES, ALL_ROLES as FALLBACK_ROLES, ROLE_DESCRIPTIONS } from '@/lib/roles';
 
 interface Slot {
     id: string;
@@ -229,7 +229,10 @@ export default function MemberGrid({ selectedDate }: { selectedDate?: Date }) {
                                                     <Icon size={16} />
                                                 </div>
                                                 <div className="flex flex-col leading-tight">
-                                                    <span className="text-[11px] font-black text-slate-700 uppercase italic tracking-tighter truncate max-w-[120px]">
+                                                    <span
+                                                        className="text-[11px] font-black text-slate-700 uppercase italic tracking-tighter truncate max-w-[120px] cursor-help"
+                                                        title={ROLE_DESCRIPTIONS[role] || "Standard Toastmasters meeting role"}
+                                                    >
                                                         {role}
                                                     </span>
                                                     <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">

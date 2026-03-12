@@ -1,7 +1,9 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Bot, Sparkles, Target, Lightbulb, Loader2, Wand2 } from 'lucide-react';
+import { Bot, Sparkles, Target, Lightbulb, Loader2, Wand2, CheckCircle2, Calendar } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { db } from '@/lib/firebase';
+import { collection, query, orderBy, onSnapshot, where, Timestamp, doc, updateDoc } from 'firebase/firestore';
 
 // Standard Toastmasters Roles to check against
 const STANDARD_ROLES = [
@@ -15,11 +17,43 @@ export default function AICoach({ stats }: { stats: Record<string, number> }) {
   const [tip, setTip] = useState("");
   const [detailedLoading, setDetailedLoading] = useState(false);
   const [detailedFeedback, setDetailedFeedback] = useState("");
+  const [suggestedRole, setSuggestedRole] = useState("");
+  const [availableMeeting, setAvailableMeeting] = useState<any>(null);
+  const [bookingLoading, setBookingLoading] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
     generateAdvice();
   }, [stats]);
+
+  // Fetch meetings to find availability for the suggested role
+  useEffect(() => {
+    if (!suggestedRole) return;
+
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    const q = query(
+      collection(db, "meetings"),
+      where("timestamp", ">=", Timestamp.fromDate(now)),
+      orderBy("timestamp", "asc")
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const meetings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      // Find the first meeting that has the suggested role available
+      const found = meetings.find((m: any) =>
+        m.slots?.some((s: any) =>
+          s.role.trim().toLowerCase() === suggestedRole.trim().toLowerCase() && !s.userId
+        )
+      );
+
+      setAvailableMeeting(found);
+    });
+
+    return () => unsubscribe();
+  }, [suggestedRole]);
 
   const generateAdvice = () => {
     // 1. Identify "Missing" or "Low Frequency" roles
@@ -27,14 +61,18 @@ export default function AICoach({ stats }: { stats: Record<string, number> }) {
     const missingRoles = STANDARD_ROLES.filter(r => !playedRoles.includes(r) && !r.includes("Speaker"));
 
     // 2. Logic for Recommendation
+    let role = "";
     if (playedRoles.length === 0) {
+      role = "Timer";
       setRecommendation("Start your journey with a smaller role like **Timer** or **Ah-Counter** to get comfortable on stage!");
     } else if (missingRoles.length > 0) {
-      const nextRole = missingRoles[0]; // Suggest the first missing role
-      setRecommendation(`To build a balanced skillset, I recommend you try being the **${nextRole}** next.`);
+      role = missingRoles[0];
+      setRecommendation(`To build a balanced skillset, I recommend you try being the **${role}** next.`);
     } else {
+      role = "TMOD";
       setRecommendation("You are a well-rounded leader! Consider taking on **TMOD** to master facilitation.");
     }
+    setSuggestedRole(role);
 
     // 3. Random Speaking Tip
     const tips = [
@@ -44,6 +82,35 @@ export default function AICoach({ stats }: { stats: Record<string, number> }) {
       "Use gestures that are purposeful and open, avoiding closed arms."
     ];
     setTip(tips[Math.floor(Math.random() * tips.length)]);
+  };
+
+  const handleAutoBook = async () => {
+    if (!user || !availableMeeting || !suggestedRole || bookingLoading) return;
+
+    setBookingLoading(true);
+    try {
+      const updatedSlots = [...availableMeeting.slots];
+      const index = updatedSlots.findIndex(s =>
+        s.role.trim().toLowerCase() === suggestedRole.trim().toLowerCase() && !s.userId
+      );
+
+      if (index >= 0) {
+        updatedSlots[index] = {
+          ...updatedSlots[index],
+          userId: user.uid,
+          userName: user.displayName || "Member"
+        };
+        await updateDoc(doc(db, "meetings", availableMeeting.id), { slots: updatedSlots });
+        alert(`Successfully booked ${suggestedRole} for ${availableMeeting.timestamp.toDate().toLocaleDateString()}!`);
+      } else {
+        alert("Sorry, that role was just taken. Refreshing...");
+      }
+    } catch (error) {
+      console.error("Auto-booking failed:", error);
+      alert("Failed to book role. Please try again.");
+    } finally {
+      setBookingLoading(false);
+    }
   };
 
   const getDetailedFeedback = async () => {
@@ -94,6 +161,25 @@ export default function AICoach({ stats }: { stats: Record<string, number> }) {
           </p>
           <p className="text-2xl font-bold leading-tight text-slate-100 max-w-lg"
             dangerouslySetInnerHTML={{ __html: recommendation }} />
+
+          {availableMeeting && (
+            <div className="mt-4 flex items-center gap-4 animate-in fade-in slide-in-from-left-2 duration-700">
+              <button
+                onClick={handleAutoBook}
+                disabled={bookingLoading}
+                className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20 active:scale-95 disabled:opacity-50"
+              >
+                {bookingLoading ? <Loader2 className="animate-spin" size={14} /> : <CheckCircle2 size={14} />}
+                One-Click Book
+              </button>
+              <div className="flex flex-col">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">Next Available</span>
+                <span className="text-xs font-black text-emerald-400 mt-1">
+                  {availableMeeting.timestamp.toDate().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Tip Card */}
@@ -129,7 +215,7 @@ export default function AICoach({ stats }: { stats: Record<string, number> }) {
               <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-3 flex items-center gap-2">
                 <Sparkles size={12} /> Personalized Progress Report
               </h4>
-              <div className="text-sm text-slate-300 leading-relaxed max-h-40 overflow-y-auto custom-scrollbar pr-2 whitespace-pre-line">
+              <div className="text-sm text-slate-300 leading-relaxed max-h-60 overflow-y-auto custom-scrollbar pr-2 whitespace-pre-line prose prose-invert prose-sm prose-p:leading-relaxed prose-headings:text-purple-400 prose-headings:mb-2 prose-headings:mt-4 first:prose-headings:mt-0">
                 {detailedFeedback}
               </div>
               <button

@@ -47,3 +47,25 @@ export const ROLE_THEMES: Record<string, { bg: string, text: string, border: str
     "Support": { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-100", dot: "bg-amber-500" },
     "Other": { bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-100", dot: "bg-slate-500" }
 };
+
+export const ROLE_DESCRIPTIONS: Record<string, string> = {
+    "SAA": "The Sergeant at Arms keeps the meeting on track and manages logistics.",
+    "President": "The Club President leads the meeting and represents the club's vision.",
+    "TMOD": "The Toastmaster of the Day is the host, guiding the entire meeting flow.",
+    "TTM": "Table Topics Master leads the impromptu speaking segment.",
+    "General Evaluator": "The GE evaluates the overall quality and efficiency of the meeting.",
+    "Timer": "Keeps track of speaking times and signals speakers with green, yellow, and red cards.",
+    "Ah-Counter": "Notes filler words like 'um', 'ah', and 'you know' during speeches.",
+    "Grammarian": "Introduces the Word of the Day and tracks grammatical usage.",
+    "Listener": "Tests the audience's listening skills with questions at the end.",
+    "Speaker 1": "Presents a prepared speech based on their current Pathway journey.",
+    "Evaluator 1": "Provides constructive feedback and encouragement to a specific speaker."
+};
+
+// Map generic speaker/evaluators to their base description
+["Speaker 2", "Speaker 3", "Speaker 4", "Speaker 5", "Speaker 6", "Speaker Backup1", "Speaker Backup2"].forEach(r => {
+    ROLE_DESCRIPTIONS[r] = ROLE_DESCRIPTIONS["Speaker 1"];
+});
+["Evaluator 2", "Evaluator 3", "Evaluator 4", "Evaluator 5", "Evaluator 6"].forEach(r => {
+    ROLE_DESCRIPTIONS[r] = ROLE_DESCRIPTIONS["Evaluator 1"];
+});

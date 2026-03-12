@@ -19,7 +19,7 @@ interface Meeting {
   slots: Slot[];
 }
 
-import { ROLE_CATEGORIES, ROLE_THEMES } from '@/lib/roles';
+import { ROLE_CATEGORIES, ROLE_THEMES, ROLE_DESCRIPTIONS } from '@/lib/roles';
 
 // Mapping icons for roles
 const ROLE_ICONS: Record<string, any> = {
@@ -165,7 +165,12 @@ export default function MeetingCard({ meeting }: { meeting: Meeting }) {
                   {isTaken ? <CheckCircle2 size={24} strokeWidth={2.5} /> : <RoleIcon size={24} />}
                 </div>
                 <div>
-                  <p className="font-extrabold text-slate-800 text-base tracking-tight">{slot.role}</p>
+                  <p
+                    className="font-extrabold text-slate-800 text-base tracking-tight cursor-help"
+                    title={ROLE_DESCRIPTIONS[slot.role] || "Standard Toastmasters meeting role"}
+                  >
+                    {slot.role}
+                  </p>
                   <p className="text-xs flex items-center gap-1.5 mt-1">
                     {isTaken ? (
                       <span className="flex items-center gap-1.5 text-slate-600 bg-white border border-slate-100 px-2.5 py-0.5 rounded-full font-bold shadow-sm">

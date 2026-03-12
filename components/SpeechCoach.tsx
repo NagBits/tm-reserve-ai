@@ -122,7 +122,15 @@ export default function SpeechCoach() {
                 ${isRecording ? 'bg-red-500 scale-110' : 'bg-slate-900 hover:bg-purple-600'}`}
                         >
                             {isRecording ? (
-                                <Square className="text-white fill-white" size={32} />
+                                <div className="flex items-end gap-1.5 h-10">
+                                    {[1, 2, 3, 4, 5].map((i) => (
+                                        <div
+                                            key={i}
+                                            className="w-1.5 bg-white rounded-full animate-voice-pulse"
+                                            style={{ animationDelay: `${i * 0.1}s`, height: `${20 + Math.random() * 40}%` }}
+                                        ></div>
+                                    ))}
+                                </div>
                             ) : (
                                 <Mic className="text-white" size={32} />
                             )}
@@ -179,7 +187,7 @@ export default function SpeechCoach() {
                                     <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-purple-600 mb-4 flex items-center gap-2">
                                         <Brain size={12} /> AI Coach Analysis
                                     </h4>
-                                    <div className="text-sm text-slate-700 font-medium leading-relaxed whitespace-pre-line prose prose-slate">
+                                    <div className="text-sm text-slate-700 font-medium leading-relaxed whitespace-pre-line prose prose-slate prose-sm max-w-none prose-headings:text-purple-600 prose-headings:font-black prose-headings:mt-6 first:prose-headings:mt-0 prose-li:marker:text-purple-400">
                                         {feedback}
                                     </div>
                                 </div>

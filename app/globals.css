@@ -55,5 +55,14 @@ body {
   .custom-scrollbar::-webkit-scrollbar-thumb {
     @apply bg-slate-200 rounded-full hover:bg-slate-300 transition-colors;
   }
+
+  @keyframes voice-pulse {
+    0%, 100% { height: 20%; opacity: 0.5; }
+    50% { height: 100%; opacity: 1; }
+  }
+
+  .animate-voice-pulse {
+    animation: voice-pulse 0.8s ease-in-out infinite;
+  }
 }
 
