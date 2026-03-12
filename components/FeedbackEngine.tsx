@@ -21,7 +21,7 @@ export default function FeedbackEngine() {
 
     try {
       const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-3-flash" });
 
       // 1. Convert file to Base64 for the Gemini SDK
       const base64Data = await new Promise<string>((resolve) => {
@@ -32,7 +32,7 @@ export default function FeedbackEngine() {
 
       // 2. Send to Gemini
       const prompt = "Analyze this audio for a Toastmasters speech. Give me an Ah-counter report, a summary of the speech content, and feedback on the speaker's vocal variety and pacing.";
-      
+
       const result = await model.generateContent([
         prompt,
         {
@@ -59,18 +59,18 @@ export default function FeedbackEngine() {
         <h2 className="text-xl font-bold">Audio Evaluator</h2>
       </div>
 
-      <div 
+      <div
         onClick={() => fileInputRef.current?.click()}
         className="border-2 border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all"
       >
-        <input 
-          type="file" 
-          ref={fileInputRef} 
-          hidden 
-          accept="audio/*" 
-          onChange={handleFileChange} 
+        <input
+          type="file"
+          ref={fileInputRef}
+          hidden
+          accept="audio/*"
+          onChange={handleFileChange}
         />
-        
+
         {file ? (
           <div className="flex flex-col items-center">
             <CheckCircle2 className="text-green-500 mb-2" size={32} />
@@ -86,7 +86,7 @@ export default function FeedbackEngine() {
         )}
       </div>
 
-      <button 
+      <button
         onClick={analyzeAudio}
         disabled={!file || loading}
         className="w-full mt-4 bg-purple-600 text-white py-3 rounded-xl font-bold hover:bg-purple-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
