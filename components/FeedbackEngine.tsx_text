@@ -14,7 +14,7 @@ export default function FeedbackEngine() {
     setLoading(true);
     try {
       const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!);
-      const model = genAI.getGenerativeModel({ model: "gemini-3-flash"});
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash"});
 
       const prompt = `
         You are a Toastmasters Grammarian and Speech Evaluator. 
@@ -48,7 +48,7 @@ export default function FeedbackEngine() {
           onChange={(e) => setTranscript(e.target.value)}
         />
         <div className="absolute bottom-3 right-3 text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-          Gemini 3 Flash
+          Gemini 2.0 Flash
         </div>
       </div>
 

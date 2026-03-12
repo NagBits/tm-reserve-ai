@@ -11,7 +11,7 @@ export async function POST(req: Request) {
 
         console.log("AI Coach API hit. Type:", stats ? "Stats Report" : "Audio Analysis");
         const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!);
-        const model = genAI.getGenerativeModel({ model: "gemini-3-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
         let prompt = "";
         let content: any[] = [];

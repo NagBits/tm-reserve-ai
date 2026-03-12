@@ -21,7 +21,7 @@ export default function FeedbackEngine() {
 
     try {
       const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!);
-      const model = genAI.getGenerativeModel({ model: "gemini-3-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
       // 1. Convert file to Base64 for the Gemini SDK
       const base64Data = await new Promise<string>((resolve) => {
